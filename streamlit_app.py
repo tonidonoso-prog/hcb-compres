@@ -3,6 +3,7 @@ import os
 import sys
 
 # --- CONFIGURACIÓN GLOBAL DEL PORTAL ---
+# Solo se permite una llamada a st.set_page_config en toda la ejecución de Streamlit
 st.set_page_config(
     page_title="H. Clinic - Orquestador de Compras",
     page_icon="🏥",
@@ -42,7 +43,7 @@ def main():
         run_app(dir_path, "app.py")
 
 def run_app(dir_path, file_name):
-    """Ejecuta un archivo de streamlit dentro del contexto actual."""
+    """Ejecuta un archivo de streamlit silenciando st.set_page_config para evitar errores."""
     if dir_path not in sys.path:
         sys.path.insert(0, dir_path)
     
@@ -51,9 +52,22 @@ def run_app(dir_path, file_name):
     try:
         with open(app_full_path, encoding='utf-8') as f:
             code = f.read()
-            # Limpiamos set_page_config para evitar errores de Streamlit
-            clean_code = code.replace("st.set_page_config", "# st.set_page_config")
-            exec(clean_code, globals())
+            
+            # Guardamos la función original para no romper Streamlit permanentemente
+            orig_set_page_config = st.set_page_config
+            
+            # Monkey-patch: redefinimos la función para que no haga nada dentro del exec
+            def dummy_set_page_config(*args, **kwargs):
+                pass
+            st.set_page_config = dummy_set_page_config
+            
+            try:
+                # Ejecutamos el código con nuestro parche activado
+                exec(code, globals())
+            finally:
+                # Restauramos la función original siempre
+                st.set_page_config = orig_set_page_config
+                
     except Exception as e:
         st.error(f"Error al cargar {file_name}: {e}")
         st.info(f"Ruta: {app_full_path}")
