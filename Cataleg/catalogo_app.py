@@ -7,9 +7,22 @@ import streamlit_antd_components as sac
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="Catálogo Hospital Clínic", layout="wide")
 
-# --- CSS: TRIÁNGULOS GRANDES PARA FACILITAR EL CLIC ---
+# --- CSS: TRIÁNGULOS GRANDES Y OCULTAR SIDEBAR ---
 st.markdown("""
 <style>
+    /* Ocultar sidebar para aprovechar toda la pantalla */
+    [data-testid="stSidebar"] {
+        display: none;
+    }
+    
+    /* Expandir contenido principal al 100% */
+    .main .block-container {
+        max-width: 100%;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+    
+    /* Triángulos grandes para facilitar el clic */
     .ant-tree-switcher {
         width: 40px !important; 
         height: 40px !important; 
@@ -86,10 +99,10 @@ def to_excel(df_in):
     return out.getvalue()
 
 # --- CABECERA ---
-c1, c2 = st.columns([1, 4])
-with c1:
-    st.image("https://portalprofessional.clinic.cat/sap/bc/bsp/sap/zbsppubliclgn/imgs/brand_logo.jpg", width=200)
-with c2:
+col_logo, col_search = st.columns([0.15, 0.85])
+with col_logo:
+    st.image("https://portalprofessional.clinic.cat/sap/bc/bsp/sap/zbsppubliclgn/imgs/brand_logo.jpg", width=180)
+with col_search:
     st.write("")
     busqueda = st.text_input("Buscador", placeholder="🔍 Buscar material...", label_visibility="collapsed").lower()
 
@@ -184,7 +197,8 @@ def construir_arbol_cacheado(datos_json, filtro_key):
     return arbol
 
 # --- INTERFAZ PRINCIPAL ---
-c_tree, c_det = st.columns([0.4, 0.6])
+# Ajustar proporciones para aprovechar el ancho completo
+c_tree, c_det = st.columns([0.35, 0.65])
 
 seleccion_id = None 
 
