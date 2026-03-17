@@ -2,6 +2,22 @@
 
 Historial de cambios del Orquestador de Compras Hospitalarias.
 
+## [2.0.1] - 2026-03-17
+
+### 🐛 Corregido
+- **Bug Crítico Catálogo**: Los materiales ahora se muestran correctamente al usar filtros desplegables
+- **Caché del Árbol**: Implementado sistema de caché con identificador único basado en filtros
+- **Búsqueda de Materiales**: Optimizada búsqueda en dataframe filtrado en vez del completo
+
+### ✨ Añadido
+- **Contador de Resultados**: Muestra número de materiales en el título "Navegación (X materiales)"
+
+### 🔧 Mejorado
+- **Performance**: Conversión a JSON para caché más eficiente
+- **Sort Hierarchy**: Ordenación alfabética en niveles de jerarquía del árbol
+
+---
+
 ## [2.0.0] - 2026-03-17
 
 ### ✨ Añadido

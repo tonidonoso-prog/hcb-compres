@@ -144,16 +144,23 @@ else:
     df_f_vista = df_f
 
 # --- CONSTRUCCIÓN DEL ÁRBOL ---
-# Usamos caché aquí también para que no recalcule el árbol entero si no cambian los filtros
+# Usamos caché con un identificador único basado en los filtros aplicados
 @st.cache_data(show_spinner=False)
-def construir_arbol_cacheado(dataframe):
+def construir_arbol_cacheado(datos_json, filtro_key):
+    """
+    Construye el árbol desde datos serializados.
+    datos_json: JSON string del dataframe filtrado
+    filtro_key: String único que identifica la combinación de filtros
+    """
+    df_temp = pd.read_json(io.StringIO(datos_json), orient='records')
     arbol = []
+    
     # Agrupamos por jerarquía
-    for n3, g3 in dataframe.groupby('Nivel 3'):
+    for n3, g3 in df_temp.groupby('Nivel 3', sort=True):
         hijos_n3 = []
-        for n4, g4 in g3.groupby('Nivel 4'):
+        for n4, g4 in g3.groupby('Nivel 4', sort=True):
             hijos_n4 = []
-            for n5, g5 in g4.groupby('Nivel 5'):
+            for n5, g5 in g4.groupby('Nivel 5', sort=True):
                 hijos_n5 = []
                 # Materiales
                 for _, row in g5.iterrows():
@@ -174,7 +181,11 @@ c_tree, c_det = st.columns([0.4, 0.6])
 seleccion_id = None 
 
 with c_tree:
-    st.subheader("Navegación")
+    # Mostrar contador de resultados
+    if not df_f_vista.empty:
+        st.subheader(f"Navegación ({len(df_f_vista)} materiales)")
+    else:
+        st.subheader("Navegación")
     
     # 1. Construimos el árbol con los datos filtrados
     if df_f_vista.empty and demasiados_datos:
@@ -182,7 +193,12 @@ with c_tree:
     elif df_f_vista.empty:
         st.warning("No hay datos que coincidan.")
     else:
-        items_arbol = construir_arbol_cacheado(df_f_vista)
+        # Crear clave única para el caché basada en los filtros
+        filtro_key = f"{sel_n3}|{sel_n4}|{sel_n5}|{busqueda}|{len(df_f_vista)}"
+        
+        # Convertir dataframe a JSON para el caché (más eficiente que pasar el objeto)
+        datos_json = df_f_vista.to_json(orient='records')
+        items_arbol = construir_arbol_cacheado(datos_json, filtro_key)
         
         # 2. Lógica de apertura automática
         # Si hay búsqueda de texto -> Abrir todo para ver resultados
@@ -207,9 +223,11 @@ with c_det:
             seleccion_id = seleccion_id[0] if len(seleccion_id) > 0 else None
 
         if seleccion_id:
-            # Buscamos la fila
-            df_f['match_key'] = df_f['Material'] + " - " + df_f['Descripción Corta']
-            fila = df_f[df_f['match_key'] == seleccion_id]
+            # Buscamos la fila en el dataframe FILTRADO (df_f_vista en vez de df_f)
+            # Esto asegura que solo buscamos en los materiales que están visibles en el árbol
+            df_busqueda = df_f_vista.copy()
+            df_busqueda['match_key'] = df_busqueda['Material'] + " - " + df_busqueda['Descripción Corta']
+            fila = df_busqueda[df_busqueda['match_key'] == seleccion_id]
             
             if not fila.empty:
                 item = fila.iloc[0]
