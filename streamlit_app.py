@@ -48,6 +48,7 @@ def run_app(dir_path, file_name):
         sys.path.insert(0, dir_path)
     
     # Preparamos el entorno para la app hija
+    app_full_path = os.path.join(dir_path, file_name)
     old_cwd = os.getcwd()
     os.chdir(dir_path)
     
