@@ -6,7 +6,7 @@ Sistema de automatización para la gestión de suministros, licitaciones y catá
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 
 ## 🌐 **Acceso Web**
-👉 **[Acceder a la aplicación en Streamlit Cloud](https://share.streamlit.io)** (Desplegado automáticamente desde GitHub)
+👉 **[Acceder a la aplicación](https://compres-hcb.streamlit.app/)** - Desplegado automáticamente desde GitHub
 
 ## 🚀 Módulos Disponibles
 
