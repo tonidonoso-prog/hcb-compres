@@ -2,17 +2,22 @@ import streamlit as st
 import os
 import sys
 
-# --- CONFIGURACIÓN GLOBAL DEL PORTAL ---
-# Solo se permite una llamada a st.set_page_config en toda la ejecución de Streamlit
+# 1. CONFIGURACIÓN GLOBAL DEL PORTAL (Debe ser obligatoriamente la primera línea de Streamlit)
 st.set_page_config(
     page_title="H. Clinic - Orquestador de Compras",
     page_icon="🏥",
     layout="wide"
 )
 
-# --- ESTILOS ---
-st.markdown("""
-<style>
+# 2. EL CAMUFLAJE CSS Y ESTILOS GLOBALES UNIFICADOS
+estilos_globales = """
+    <style>
+    /* Ocultar menú de Streamlit y botón de GitHub */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stAppDeployButton {display:none;}
+
     /* Maximizar ancho disponible */
     .block-container {
         max-width: 95% !important;
@@ -22,8 +27,9 @@ st.markdown("""
     }
     .stSelectbox label { font-size: 20px !important; font-weight: bold; color: #004a99; }
     .portal-header { background-color: #004a99; padding: 20px; border-radius: 10px; color: white; margin-bottom: 25px; }
-</style>
-""", unsafe_allow_html=True)
+    </style>
+    """
+st.markdown(estilos_globales, unsafe_allow_html=True)
 
 def main():
     with st.sidebar:
