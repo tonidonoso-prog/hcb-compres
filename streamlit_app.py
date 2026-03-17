@@ -13,6 +13,13 @@ st.set_page_config(
 # --- ESTILOS ---
 st.markdown("""
 <style>
+    /* Maximizar ancho disponible */
+    .block-container {
+        max-width: 95% !important;
+        padding-top: 1rem !important;
+        padding-right: 1rem !important;
+        padding-left: 1rem !important;
+    }
     .stSelectbox label { font-size: 20px !important; font-weight: bold; color: #004a99; }
     .portal-header { background-color: #004a99; padding: 20px; border-radius: 10px; color: white; margin-bottom: 25px; }
 </style>
