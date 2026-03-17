@@ -47,30 +47,34 @@ def run_app(dir_path, file_name):
     if dir_path not in sys.path:
         sys.path.insert(0, dir_path)
     
-    app_full_path = os.path.join(dir_path, file_name)
+    # Preparamos el entorno para la app hija
+    old_cwd = os.getcwd()
+    os.chdir(dir_path)
     
     try:
-        with open(app_full_path, encoding='utf-8') as f:
+        with open(file_name, encoding='utf-8') as f:
             code = f.read()
             
-            # Guardamos la función original para no romper Streamlit permanentemente
+            # Guardamos la función original
             orig_set_page_config = st.set_page_config
             
-            # Monkey-patch: redefinimos la función para que no haga nada dentro del exec
+            # Monkey-patch
             def dummy_set_page_config(*args, **kwargs):
                 pass
             st.set_page_config = dummy_set_page_config
             
+            # Inyectamos contexto
+            custom_globals = globals().copy()
+            custom_globals['__file__'] = app_full_path
+            
             try:
-                # Ejecutamos el código con nuestro parche activado
-                exec(code, globals())
+                exec(code, custom_globals)
             finally:
-                # Restauramos la función original siempre
                 st.set_page_config = orig_set_page_config
-                
     except Exception as e:
         st.error(f"Error al cargar {file_name}: {e}")
-        st.info(f"Ruta: {app_full_path}")
+    finally:
+        os.chdir(old_cwd)
 
 if __name__ == "__main__":
     main()
