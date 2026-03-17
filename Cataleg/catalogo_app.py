@@ -153,6 +153,10 @@ def construir_arbol_cacheado(datos_json, filtro_key):
     filtro_key: String único que identifica la combinación de filtros
     """
     df_temp = pd.read_json(io.StringIO(datos_json), orient='records')
+    # Asegurar que todas las columnas son string para evitar errores con el componente tree
+    for col in df_temp.columns:
+        df_temp[col] = df_temp[col].astype(str)
+    
     arbol = []
     
     # Agrupamos por jerarquía
@@ -164,15 +168,19 @@ def construir_arbol_cacheado(datos_json, filtro_key):
                 hijos_n5 = []
                 # Materiales
                 for _, row in g5.iterrows():
+                    # Convertir explícitamente a string para evitar errores
+                    material_str = str(row['Material'])
+                    desc_str = str(row['Descripción Corta'])
+                    label = f"{material_str} - {desc_str}"
+                    
                     item = sac.TreeItem(
-                        f"{row['Material']} - {row['Descripción Corta']}", 
-                        icon='box-seam', 
-                        tag=row['Material'] 
+                        label, 
+                        icon='box-seam'
                     )
                     hijos_n5.append(item)
-                hijos_n4.append(sac.TreeItem(n5, icon='folder', children=hijos_n5))
-            hijos_n3.append(sac.TreeItem(n4, icon='folder', children=hijos_n4))
-        arbol.append(sac.TreeItem(n3, icon='folder-fill', children=hijos_n3))
+                hijos_n4.append(sac.TreeItem(str(n5), icon='folder', children=hijos_n5))
+            hijos_n3.append(sac.TreeItem(str(n4), icon='folder', children=hijos_n4))
+        arbol.append(sac.TreeItem(str(n3), icon='folder-fill', children=hijos_n3))
     return arbol
 
 # --- INTERFAZ PRINCIPAL ---
