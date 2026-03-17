@@ -40,3 +40,19 @@ ENV/
 # Logs
 *.log
 log_auditoria_compras.txt
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+~$*
+
+# Test files
+test_*.py
+*_test.py

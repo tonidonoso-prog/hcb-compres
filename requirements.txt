@@ -1,9 +1,19 @@
-pandas
-openpyxl
+# Core dependencies
+pandas>=2.0.0
+numpy>=1.24.0
+openpyxl>=3.1.0
+xlsxwriter>=3.1.0
+
+# Streamlit
 streamlit>=1.35.0
-streamlit-antd-components
-xlsxwriter
-numpy
-python-calamine
-pyarrow
-altair
+streamlit-antd-components>=0.3.0
+
+# Excel optimization
+python-calamine>=0.1.7
+pyarrow>=12.0.0
+
+# Visualization
+altair>=5.0.0
+
+# Utilities
+Pillow>=10.0.0
