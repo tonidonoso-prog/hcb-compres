@@ -7,11 +7,46 @@ fitxer_origen = 'hi.xlsm'
 nom_sortida = 'ACO1_PPT_OT.xlsx'
 password_excel = '1234'
 
+# --- DINAMIC COLUMN MAPPING ---
+def get_column_mapping(wb_in, annex_type):
+    try:
+        cab_file = 'CABECERAS.xlsx'
+        df_map = pd.read_excel(cab_file, sheet_name=annex_type)
+        annex_headers = df_map.columns.tolist()
+        hi_headers_to_find = [str(h).strip().upper() for h in df_map.iloc[0].tolist()]
+        
+        ws_in = wb_in['Full Inici']
+        mapping = {}
+        
+        # Scan headers in rows 5 and 6 (1-indexed: 5 and 6)
+        for r_idx in [5, 6]:
+            row_vals = [str(ws_in.cell(row=r_idx, column=c).value).strip().upper() for c in range(1, 150)]
+            for ah, htf in zip(annex_headers, hi_headers_to_find):
+                if htf == "NAN" or htf == "": continue
+                if htf in row_vals:
+                    mapping[ah] = row_vals.index(htf) + 1 # 1-based column index
+        return mapping
+    except Exception as e:
+        print(f"Error loading mapping: {e}")
+        return {}
+
 try:
     print("Llegint arxiu d'origen: hi.xlsm...")
     # data_only=True per llegir valors calculats de les fórmules
     wb_in = load_workbook(fitxer_origen, data_only=True)
     
+    # Obtenir mapeig dinàmic
+    mapping = get_column_mapping(wb_in, 'OT')
+    print(f"Mapeig detectat: {mapping}")
+
+    # Fallback/Default indices if mapping fails (original values)
+    col_lot = mapping.get("LOT", 23)      # W
+    col_art = mapping.get("ARTICLE", 24)  # X
+    col_cod = mapping.get("CODI HCB", 1)  # A
+    col_tec = mapping.get("DENOMINACIÓ I REQUERIMENTS TÈCNICS", 32) # AF
+    col_uml = mapping.get("UNITAT DE MESURA LICITADA (UML)", 68)   # BP
+    col_qty = mapping.get("QUANTITAT", 69) # BQ
+
     # --- DADES DE CABECERA ---
     nom_pestanya_cab = next((s for s in wb_in.sheetnames if s.upper() == "CABECERA"), None)
     if not nom_pestanya_cab:
@@ -28,16 +63,18 @@ try:
     
     dades_extretes = []
     fila_orig = 6
-    while ws_in[f'X{fila_orig}'].value is not None or ws_in[f'A{fila_orig}'].value is not None:
-        val_w = ws_in[f'W{fila_orig}'].value 
-        if val_w is not None and str(val_w).strip() != "":
-            val_bq = ws_in[f'BQ{fila_orig}'].value
-            try: val_bq = float(val_bq) if val_bq is not None else 0.0
-            except: val_bq = 0.0
+    while ws_in.cell(row=fila_orig, column=col_art).value is not None or ws_in.cell(row=fila_orig, column=col_cod).value is not None:
+        val_w = ws_in.cell(row=fila_orig, column=col_lot).value 
+        if val_w is not None and str(val_w).strip() != "" and str(val_w).upper() != "NUMERO":
+            val_qty_val = ws_in.cell(row=fila_orig, column=col_qty).value
+            try: val_qty_val = float(val_qty_val) if val_qty_val is not None else 0.0
+            except: val_qty_val = 0.0
             dades_extretes.append({
-                "lot": val_w, "article": ws_in[f'X{fila_orig}'].value,
-                "codi_hcb": ws_in[f'A{fila_orig}'].value, "tecnic": ws_in[f'AF{fila_orig}'].value,
-                "uml": ws_in[f'BP{fila_orig}'].value, "quantitat": (val_bq / 12) * factor_dh3
+                "lot": val_w, "article": ws_in.cell(row=fila_orig, column=col_art).value,
+                "codi_hcb": ws_in.cell(row=fila_orig, column=col_cod).value, 
+                "tecnic": ws_in.cell(row=fila_orig, column=col_tec).value,
+                "uml": ws_in.cell(row=fila_orig, column=col_uml).value, 
+                "quantitat": (val_qty_val / 12) * factor_dh3
             })
         fila_orig += 1
         if fila_orig > 10000: break
@@ -52,13 +89,14 @@ try:
             "NOM DEL FABRICANT", "MARCA", "REF. MATERIAL DEL FABRICANT"]
 
     df_final = pd.DataFrame(columns=cols)
-    df_temp = pd.DataFrame(dades_extretes)
-    df_final["LOT"] = df_temp["lot"]
-    df_final["ARTICLE"] = df_temp["article"]
-    df_final["CODI HCB"] = df_temp["codi_hcb"]
-    df_final["DENOMINACIÓ I REQUERIMENTS TÈCNICS"] = df_temp["tecnic"]
-    df_final["QUANTITAT"] = df_temp["quantitat"]
-    df_final["UNITAT DE MESURA LICITADA (UML)"] = df_temp["uml"]
+    if dades_extretes:
+        df_temp = pd.DataFrame(dades_extretes)
+        df_final["LOT"] = df_temp["lot"]
+        df_final["ARTICLE"] = df_temp["article"]
+        df_final["CODI HCB"] = df_temp["codi_hcb"]
+        df_final["DENOMINACIÓ I REQUERIMENTS TÈCNICS"] = df_temp["tecnic"]
+        df_final["QUANTITAT"] = df_temp["quantitat"]
+        df_final["UNITAT DE MESURA LICITADA (UML)"] = df_temp["uml"]
 
     with pd.ExcelWriter(nom_sortida, engine='openpyxl') as writer:
         df_final.to_excel(writer, index=False, startrow=15, sheet_name='Annex')

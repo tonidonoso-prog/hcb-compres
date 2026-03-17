@@ -7,6 +7,29 @@ fitxer_origen = 'hi.xlsm'
 nom_sortida = 'ACO2_PPT_AM.xlsx'
 password_excel = '1234'
 
+# --- DINAMIC COLUMN MAPPING ---
+def get_column_mapping(wb_in, annex_type):
+    try:
+        cab_file = 'CABECERAS.xlsx'
+        df_map = pd.read_excel(cab_file, sheet_name=annex_type)
+        annex_headers = df_map.columns.tolist()
+        hi_headers_to_find = [str(h).strip().upper() for h in df_map.iloc[0].tolist()]
+        
+        ws_in = wb_in['Full Inici']
+        mapping = {}
+        
+        # Scan headers in rows 5 and 6
+        for r_idx in [5, 6]:
+            row_vals = [str(ws_in.cell(row=r_idx, column=c).value).strip().upper() for c in range(1, 150)]
+            for ah, htf in zip(annex_headers, hi_headers_to_find):
+                if htf == "NAN" or htf == "": continue
+                if htf in row_vals:
+                    mapping[ah] = row_vals.index(htf) + 1 # 1-based column index
+        return mapping
+    except Exception as e:
+        print(f"Error loading mapping: {e}")
+        return {}
+
 try:
     print(f"Llegint arxiu d'origen: {fitxer_origen}...")
     # data_only=True per llegir valors calculats de les fórmules
@@ -24,16 +47,31 @@ try:
     # --- DADES DE PRODUCTES (Full Inici) ---
     ws_in = wb_in['Full Inici']
     
+    mapping = get_column_mapping(wb_in, 'AM')
+    print(f"Mapeig detectat: {mapping}")
+
+    col_lot = mapping.get("LOTE", 23)
+    col_art = mapping.get("ARTÍCULO", 24)
+    col_cod = mapping.get("CÓDIGO HCB", 1)
+    col_tec = mapping.get("DENOMINACIÓN Y REQUISITOS TÉCNICOS", 32)
+    # Busquem també la quantitat de mostres si està mapejada
+    col_req = mapping.get("CANTIDAD DE MUESTRAS\nREQUERIDAS", 79)
+
     dades_extretes = []
     fila_orig = 6
-    while ws_in[f'X{fila_orig}'].value is not None or ws_in[f'A{fila_orig}'].value is not None:
-        val_w = ws_in[f'W{fila_orig}'].value 
-        if val_w is not None and str(val_w).strip() != "":
+    while ws_in.cell(row=fila_orig, column=col_art).value is not None or ws_in.cell(row=fila_orig, column=col_cod).value is not None:
+        val_w = ws_in.cell(row=fila_orig, column=col_lot).value 
+        if val_w is not None and str(val_w).strip() != "" and str(val_w).upper() != "NUMERO":
+            val_req_val = ws_in.cell(row=fila_orig, column=col_req).value
+            try: val_req_val = float(val_req_val) if val_req_val is not None else 1.0
+            except: val_req_val = 1.0
+            
             dades_extretes.append({
                 "lot": val_w, 
-                "article": ws_in[f'X{fila_orig}'].value,
-                "codi_hcb": ws_in[f'A{fila_orig}'].value, 
-                "tecnic": ws_in[f'AF{fila_orig}'].value
+                "article": ws_in.cell(row=fila_orig, column=col_art).value,
+                "codi_hcb": ws_in.cell(row=fila_orig, column=col_cod).value, 
+                "tecnic": ws_in.cell(row=fila_orig, column=col_tec).value,
+                "requerides": val_req_val
             })
         fila_orig += 1
         if fila_orig > 10000: break
@@ -44,12 +82,13 @@ try:
             "CANTIDAD DE MUESTRAS REQUERIDAS", "CANTIDAD DE MUESTRAS PRESENTADAS"]
 
     df_final = pd.DataFrame(columns=cols)
-    df_temp = pd.DataFrame(dades_extretes)
-    df_final["LOTE"] = df_temp["lot"]
-    df_final["ARTÍCULO"] = df_temp["article"]
-    df_final["CÓDIGO HCB"] = df_temp["codi_hcb"]
-    df_final["DENOMINACIÓN Y REQUISITOS TÉCNICOS"] = df_temp["tecnic"]
-    df_final["CANTIDAD DE MUESTRAS REQUERIDAS"] = 1 # Valor per defecte, es pot ajustar o llegir d'un altre lloc
+    if dades_extretes:
+        df_temp = pd.DataFrame(dades_extretes)
+        df_final["LOTE"] = df_temp["lot"]
+        df_final["ARTÍCULO"] = df_temp["article"]
+        df_final["CÓDIGO HCB"] = df_temp["codi_hcb"]
+        df_final["DENOMINACIÓN Y REQUISITOS TÉCNICOS"] = df_temp["tecnic"]
+        df_final["CANTIDAD DE MUESTRAS REQUERIDAS"] = df_temp["requerides"]
 
     with pd.ExcelWriter(nom_sortida, engine='openpyxl') as writer:
         df_final.to_excel(writer, index=False, header=False, startrow=15, sheet_name='Plantilla Annex')

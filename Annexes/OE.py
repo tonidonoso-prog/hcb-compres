@@ -9,6 +9,29 @@ fitxer_origen = 'hi.xlsm'
 nom_sortida = 'ACO3_PCAP_OE.xlsx'
 password_excel = '1234'
 
+# --- DINAMIC COLUMN MAPPING ---
+def get_column_mapping(wb_in, annex_type):
+    try:
+        cab_file = 'CABECERAS.xlsx'
+        df_map = pd.read_excel(cab_file, sheet_name=annex_type)
+        annex_headers = df_map.columns.tolist()
+        hi_headers_to_find = [str(h).strip().upper() for h in df_map.iloc[0].tolist()]
+        
+        ws_in = wb_in['Full Inici']
+        mapping = {}
+        
+        # Scan headers in rows 5 and 6
+        for r_idx in [5, 6]:
+            row_vals = [str(ws_in.cell(row=r_idx, column=c).value).strip().upper() for c in range(1, 150)]
+            for ah, htf in zip(annex_headers, hi_headers_to_find):
+                if htf == "NAN" or htf == "": continue
+                if htf in row_vals:
+                    mapping[ah] = row_vals.index(htf) + 1 # 1-based column index
+        return mapping
+    except Exception as e:
+        print(f"Error loading mapping: {e}")
+        return {}
+
 try:
     print(f"Llegint arxiu d'origen: {fitxer_origen}...")
     # data_only=True per llegir valors calculats de les fórmules
@@ -28,32 +51,37 @@ try:
     val_dh3 = ws_in['DH3'].value
     factor_dh3 = float(val_dh3) if val_dh3 is not None else 1.0
     
+    mapping = get_column_mapping(wb_in, 'OE')
+    print(f"Mapeig detectat: {mapping}")
+
+    col_lot = mapping.get("LOTE", 23)
+    col_art = mapping.get("ARTÍCULO", 24)
+    col_cod = mapping.get("CÓDIGO HCB", 1)
+    col_tec = mapping.get("DENOMINACIÓN Y REQUISITOS TÉCNICOS", 32)
+    col_uml = mapping.get("UNIDAD DE MEDIDA LICITADA (***)", 68)
+    col_qty = mapping.get("CANTIDAD", 69)
+    col_pre = mapping.get("BASE IMPONIBLE MÁXIMA DE LICITACIÓN UNITARIA(**) (***)", 70)
+    col_iva = mapping.get("TIPO IVA", 71)
+
+    # Funció auxiliar per parsejar valors numèrics amb format europeu (coma decimal)
+    def parse_num(val, default=0.0):
+        if val is None:
+            return default
+        if isinstance(val, (int, float)):
+            return float(val)
+        try:
+            return float(str(val).replace(',', '.').strip())
+        except:
+            return default
+
     dades_extretes = []
     fila_orig = 7
-    while ws_in[f'X{fila_orig}'].value is not None or ws_in[f'A{fila_orig}'].value is not None:
-        val_w = ws_in[f'W{fila_orig}'].value 
-        if val_w is not None and str(val_w).strip() != "":
-            # LLEGIR PREUS I IVA (Basat en la fila 6 de HI.xlsm)
-            # Col 70 (BR): PRECIO UNIT. MÁX. LICITACION (BI)
-            # Col 71 (BS): % IVA
-            
-            # Nota: ws_in.cell és 1-based. BQ=69, BR=70, BS=71
-            # Funció auxiliar per parsejar valors numèrics amb format europeu (coma decimal)
-            def parse_num(val, default=0.0):
-                if val is None:
-                    return default
-                if isinstance(val, (int, float)):
-                    return float(val)
-                try:
-                    return float(str(val).replace(',', '.').strip())
-                except:
-                    return default
-
-            val_bq = parse_num(ws_in.cell(row=fila_orig, column=69).value) # BQ (Quantitat)
-            
-            preu_max = parse_num(ws_in.cell(row=fila_orig, column=70).value) # BR (Preu Max - PRECIO UNIT. MÁX. LICITACION (BI))
-            
-            val_bs = ws_in.cell(row=fila_orig, column=71).value # BS (% IVA)
+    while ws_in.cell(row=fila_orig, column=col_art).value is not None or ws_in.cell(row=fila_orig, column=col_cod).value is not None:
+        val_w = ws_in.cell(row=fila_orig, column=col_lot).value 
+        if val_w is not None and str(val_w).strip() != "" and str(val_w).upper() != "NUMERO":
+            val_qty_val = parse_num(ws_in.cell(row=fila_orig, column=col_qty).value)
+            preu_max = parse_num(ws_in.cell(row=fila_orig, column=col_pre).value)
+            val_bs = ws_in.cell(row=fila_orig, column=col_iva).value
             try: 
                 if isinstance(val_bs, (int, float)):
                     iva = float(val_bs)
@@ -63,14 +91,14 @@ try:
             except: 
                 iva = 0.0
 
-            quantitat_calculada = (val_bq / 12) * factor_dh3
+            quantitat_calculada = (val_qty_val / 12) * factor_dh3
 
             dades_extretes.append({
                 "lot": val_w, 
-                "article": ws_in[f'X{fila_orig}'].value,
-                "codi_hcb": ws_in[f'A{fila_orig}'].value, 
-                "tecnic": ws_in[f'AF{fila_orig}'].value,
-                "uml": ws_in[f'BP{fila_orig}'].value,
+                "article": ws_in.cell(row=fila_orig, column=col_art).value,
+                "codi_hcb": ws_in.cell(row=fila_orig, column=col_cod).value, 
+                "tecnic": ws_in.cell(row=fila_orig, column=col_tec).value,
+                "uml": ws_in.cell(row=fila_orig, column=col_uml).value,
                 "quantitat": quantitat_calculada,
                 "preu_max": preu_max,
                 "iva": iva
