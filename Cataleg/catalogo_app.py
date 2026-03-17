@@ -7,19 +7,21 @@ import streamlit_antd_components as sac
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="Catálogo Hospital Clínic", layout="wide")
 
-# --- CSS: TRIÁNGULOS GRANDES Y OCULTAR SIDEBAR ---
+# --- CSS: MAXIMIZAR ESPACIO DISPONIBLE ---
 st.markdown("""
 <style>
-    /* Ocultar sidebar para aprovechar toda la pantalla */
-    [data-testid="stSidebar"] {
-        display: none;
+    /* Expandir contenido principal al máximo sin ocultar sidebar */
+    .main .block-container {
+        max-width: 100% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        padding-top: 1rem !important;
     }
     
-    /* Expandir contenido principal al 100% */
-    .main .block-container {
-        max-width: 100%;
-        padding-left: 2rem;
-        padding-right: 2rem;
+    /* Reducir ancho del sidebar para dar más espacio al contenido */
+    [data-testid="stSidebar"] {
+        min-width: 200px !important;
+        max-width: 200px !important;
     }
     
     /* Triángulos grandes para facilitar el clic */
@@ -198,7 +200,7 @@ def construir_arbol_cacheado(datos_json, filtro_key):
 
 # --- INTERFAZ PRINCIPAL ---
 # Ajustar proporciones para aprovechar el ancho completo
-c_tree, c_det = st.columns([0.35, 0.65])
+c_tree, c_det = st.columns([0.40, 0.60])
 
 seleccion_id = None 
 
