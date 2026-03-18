@@ -43,7 +43,7 @@ with c1:
     else: st.image("https://portalprofessional.clinic.cat/sap/bc/bsp/sap/zbsppubliclgn/imgs/brand_logo.jpg", width=220)
 
 with c2:
-    st.title("Orquestador de Compras: Generador de Anexos")
+    st.title("Generador de Anexos")
     st.write("Generación automatizada de PPT y PCAP a partir del Fichero Inicial (HI).")
 
 st.divider()
