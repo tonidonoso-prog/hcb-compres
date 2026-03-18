@@ -7,11 +7,14 @@ from openpyxl.drawing.image import Image
 import os
 
 def get_column_mapping(wb_in, annex_type):
+    import re
+    def normalize(text):
+        return set(re.findall(r'[A-Z0-9]+', str(text).upper()))
+        
     try:
-        # En el contexto de generator.py, CABECERAS.xlsx debe estar en el mismo directorio
+        import os
         cab_file = os.path.join(os.path.dirname(__file__), 'CABECERAS.xlsx')
         if not os.path.exists(cab_file):
-            # Probar ruta relativa simple si el script se lanza desde el directorio base
             cab_file = 'CABECERAS.xlsx'
             if not os.path.exists(cab_file):
                 print("CABECERAS.xlsx not found")
@@ -24,13 +27,39 @@ def get_column_mapping(wb_in, annex_type):
         ws_in = wb_in['Full Inici']
         mapping = {}
         
-        # Scan headers in rows 5 and 6
-        for r_idx in [5, 6]:
+        for r_idx in [4, 5, 6, 7]:
             row_vals = [str(ws_in.cell(row=r_idx, column=c).value).strip().upper() for c in range(1, 150)]
             for ah, htf in zip(annex_headers, hi_headers_to_find):
+                if ah in mapping: continue
                 if htf == "NAN" or htf == "": continue
+                
                 if htf in row_vals:
-                    mapping[ah] = row_vals.index(htf) + 1 # 1-based column index
+                    mapping[ah] = row_vals.index(htf) + 1
+                else:
+                    best_idx = -1
+                    best_score = 0
+                    htf_words = normalize(htf)
+                    if not htf_words: continue
+                    
+                    for idx, rv in enumerate(row_vals):
+                        if rv == "" or rv == "NONE": continue
+                        rv_words = normalize(rv)
+                        if not rv_words: continue
+                        
+                        if htf in rv or rv in htf:
+                            best_idx = idx + 1
+                            best_score = 2.0
+                            break
+                            
+                        intersection = htf_words.intersection(rv_words)
+                        score = len(intersection) / max(len(htf_words), len(rv_words))
+                        if score > best_score and score >= 0.5:
+                            best_score = score
+                            best_idx = idx + 1
+                            
+                    if best_score > 0:
+                        mapping[ah] = best_idx
+                        
         return mapping
     except Exception as e:
         print(f"Error loading mapping: {e}")
@@ -75,8 +104,14 @@ def generate_am(input_bytes, logo_path='logo.png'):
     dades_extretes = []
     fila_orig = 6
     while ws_in.cell(row=fila_orig, column=col_art).value is not None or ws_in.cell(row=fila_orig, column=col_cod).value is not None:
+        # Check if this row is actually the header row
+        val_art_str = str(ws_in.cell(row=fila_orig, column=col_art).value).upper()
+        if "ARTICUL" in val_art_str or "ARTÍCUL" in val_art_str or val_art_str == "ARTICLE":
+            fila_orig += 1
+            continue
+            
         val_w = ws_in.cell(row=fila_orig, column=col_lot).value 
-        if val_w is not None and str(val_w).strip() != "" and str(val_w).upper() != "NUMERO":
+        if val_w is not None and str(val_w).strip() != "" and "LOT" not in str(val_w).upper():
             val_req_val = ws_in.cell(row=fila_orig, column=col_req).value
             try: val_req_val = float(val_req_val) if val_req_val is not None else 1.0
             except: val_req_val = 1.0
@@ -237,8 +272,13 @@ def generate_oe(input_bytes, logo_path='logo.png'):
     dades_extretes = []
     fila_orig = 7
     while ws_in.cell(row=fila_orig, column=col_art).value is not None or ws_in.cell(row=fila_orig, column=col_cod).value is not None:
+        val_art_str = str(ws_in.cell(row=fila_orig, column=col_art).value).upper()
+        if "ARTICUL" in val_art_str or "ARTÍCUL" in val_art_str or val_art_str == "ARTICLE":
+            fila_orig += 1
+            continue
+            
         val_w = ws_in.cell(row=fila_orig, column=col_lot).value 
-        if val_w is not None and str(val_w).strip() != "" and str(val_w).upper() != "NUMERO":
+        if val_w is not None and str(val_w).strip() != "" and "LOT" not in str(val_w).upper():
             val_qty_val = parse_num(ws_in.cell(row=fila_orig, column=col_qty).value)
             preu_max = parse_num(ws_in.cell(row=fila_orig, column=col_pre).value)
             val_bs = ws_in.cell(row=fila_orig, column=col_iva).value
@@ -377,9 +417,14 @@ def generate_ot(input_bytes, logo_path='logo.png'):
     dades_extretes = []
     fila_orig = 6
     while ws_in.cell(row=fila_orig, column=col_art).value is not None or ws_in.cell(row=fila_orig, column=col_cod).value is not None:
+        val_art_str = str(ws_in.cell(row=fila_orig, column=col_art).value).upper()
+        if "ARTICUL" in val_art_str or "ARTÍCUL" in val_art_str or val_art_str == "ARTICLE":
+            fila_orig += 1
+            continue
+            
         # Evitar capturar la fila de capçalera si es detecta per paraules clau
         val_w = ws_in.cell(row=fila_orig, column=col_lot).value 
-        if val_w is not None and str(val_w).strip() != "" and str(val_w).upper() != "NUMERO":
+        if val_w is not None and str(val_w).strip() != "" and "LOT" not in str(val_w).upper():
             val_qty_val = parse_num(ws_in.cell(row=fila_orig, column=col_qty).value)
             dades_extretes.append({
                 "lot": val_w, "article": ws_in.cell(row=fila_orig, column=col_art).value,
