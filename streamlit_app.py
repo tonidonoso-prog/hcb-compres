@@ -2,9 +2,9 @@ import streamlit as st
 import os
 import sys
 
-# 1. CONFIGURACIÓN GLOBAL DEL PORTAL (Debe ser obligatoriamente la primera línea de Streamlit)
+# 1. CONFIGURACIÓN GLOBAL (Debe ser la primera instrucción de Streamlit)
 st.set_page_config(
-    page_title="H. Clinic - Orquestador de Compras",
+    page_title="H. Clinic - Orquestador",
     page_icon="🏥",
     layout="wide"
 )
