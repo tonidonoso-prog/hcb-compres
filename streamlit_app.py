@@ -36,7 +36,7 @@ def main():
         st.markdown("### 🛠️ Panel de Herramientas")
         app_mode = st.selectbox(
             "Selecciona Aplicación:",
-            ["🪄 Limpiar Maravilloso", "📂 Catálogo Hospital", "📄 Generador de Anexos"]
+            ["🪄 Limpiar Maravilloso", "📂 Catálogo Hospital", "📄 Generador de Anexos", "📋 Extractor PCAP"]
         )
         st.divider()
         st.info(" DSG Compres - Hospital Clínic Barcelona")
@@ -53,6 +53,10 @@ def main():
 
     elif app_mode == "📄 Generador de Anexos":
         dir_path = os.path.join(os.path.dirname(__file__), "Annexes")
+        run_app(dir_path, "app.py")
+
+    elif app_mode == "📋 Extractor PCAP":
+        dir_path = os.path.join(os.path.dirname(__file__), "PCAP")
         run_app(dir_path, "app.py")
 
 def run_app(dir_path, file_name):
