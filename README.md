@@ -51,8 +51,8 @@ El portal integra 3 aplicaciones principales accesibles desde un menú lateral u
 
 1. **Clonar el repositorio:**
    ```bash
-   git clone https://github.com/tonidonoso-prog/limpiar-maravilloso.git
-   cd limpiar-maravilloso
+   git clone https://github.com/tonidonoso-prog/hcb-compres.git
+   cd hcb-compres
    ```
 
 2. **Crear entorno virtual (recomendado):**
@@ -86,10 +86,10 @@ El portal integra 3 aplicaciones principales accesibles desde un menú lateral u
 
 1. Ve a [share.streamlit.io](https://share.streamlit.io)
 2. Conecta tu cuenta de GitHub
-3. Selecciona este repositorio: `tonidonoso-prog/limpiar-maravilloso`
+3. Selecciona este repositorio: `tonidonoso-prog/hcb-compres`
 4. Branch: `main`
 5. Main file: `streamlit_app.py`
-6. ¡Listo! Tu URL será: `https://[tu-usuario]-limpiar-maravilloso-xxxxxx.streamlit.app`
+6. ¡Listo! Tu URL será: `https://[tu-usuario]-hcb-compres-xxxxxx.streamlit.app`
 
 ### Opción 2: Deploy Manual
 
