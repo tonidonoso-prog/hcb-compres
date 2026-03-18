@@ -11,9 +11,9 @@ password_excel = '1234'
 def get_column_mapping(wb_in, annex_type):
     try:
         cab_file = 'CABECERAS.xlsx'
-        df_map = pd.read_excel(cab_file, sheet_name=annex_type)
-        annex_headers = df_map.columns.tolist()
-        hi_headers_to_find = [str(h).strip().upper() for h in df_map.iloc[0].tolist()]
+        df_map = pd.read_excel(cab_file, sheet_name=annex_type, header=None)
+        annex_headers = [str(h).strip() for h in df_map.iloc[0].fillna("").tolist()]
+        hi_headers_to_find = [str(h).strip().upper() for h in df_map.iloc[1].fillna("").tolist()]
         
         ws_in = wb_in['Full Inici']
         mapping = {}
