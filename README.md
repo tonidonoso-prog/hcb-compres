@@ -106,7 +106,7 @@ COMPRES/
 ├── Annexes/
 │   ├── app.py               # Interfaz principal de Anexos
 │   ├── generator.py         # Lógica de generación
-│   └── [AM.py, OE.py, OTcabecera.py]
+│   └── [AM.py, OE.py, OT.py]
 ├── Cataleg/
 │   ├── catalogo_app.py      # Aplicación del catálogo
 │   ├── CAT1.xlsx            # Base de datos del catálogo

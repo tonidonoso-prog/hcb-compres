@@ -25,7 +25,7 @@ Generar de forma masiva los archivos Excel necesarios para una licitación, apli
 ## 4. SCRIPTS ASOCIADOS
 *   `AM.py`: Generación de anexos para Acuerdos Marco (PPT Albarán de Muestras).
 *   `OE.py`: Generación de anexos para Ofertas Económicas (PCAP Oferta Económica).
-*   `OTcabecera.py`: Procesamiento de Ofertas Técnicas (PPT Oferta Técnica).
+*   `OT.py`: Procesamiento de Ofertas Técnicas (PPT Oferta Técnica).
 *   *Nota: Se pueden añadir nuevos scripts siguiendo el mismo patrón de maquetación OpenPyXL.*
 
 ## 5. REGLAS DE ELEGANCIA
