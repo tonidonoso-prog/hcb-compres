@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/c/Users/Toni/AppData/Local/Programs/Python/Python313/python.exe \"C:/Users/Toni/AppData/Local/Temp/write_catalogo.py\")"
+    ]
+  }
+}
