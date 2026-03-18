@@ -40,9 +40,9 @@ def main():
     # --- CABECERA CON LOGO ---
     logo = get_logo_b64()
     if logo:
-        logo_html = f"<img src="data:image/png;base64,{logo}" style="height:55px; margin-right:18px;">"
+        logo_html = '<img src="data:image/png;base64,' + logo + '" style="height:55px; margin-right:18px;">'
     else:
-        logo_html = "<span style="font-size:28px; margin-right:12px;">🏥</span>"
+        logo_html = '<span style="font-size:28px; margin-right:12px;">🏥</span>'
 
     st.markdown(f"""
     <div style="display:flex; align-items:center; background-color:#004a99;
