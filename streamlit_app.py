@@ -74,7 +74,7 @@ def main():
     elif app_mode == "📄 Generador de Anexos":
         run_app(os.path.join(base, "Annexes"), "app.py")
     elif app_mode == "📋 Extractor PCAP":
-        run_app(os.path.join(base, "PCAP"), "app.py")
+        run_app(os.path.join(base, "Varios PDF", "PCAP"), "app.py")
 
 
 def run_app(dir_path, file_name):
