@@ -36,6 +36,7 @@ ENV/
 !plantillas/*.xlsx
 !Cataleg/*.xlsx
 !Cataleg/*.parquet
+!Annexes/CABECERAS.xlsx
 
 # Logs
 *.log
