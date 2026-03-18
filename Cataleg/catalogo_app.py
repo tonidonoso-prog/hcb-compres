@@ -147,8 +147,14 @@ if busqueda_raw.strip():
 
     for word in words:
         mask = pd.Series(False, index=df_f.index)
+        word_compact = word.replace(' ', '').replace('-', '')
         for col in search_fields:
+            # Busqueda normal (con espacios)
             mask = mask | df_norm[col].str.contains(word, na=False, regex=False)
+            # Busqueda compacta: ignora espacios y guiones en ambos lados
+            # Permite "papeldina4" encontrar "Papel Din A4"
+            field_compact = df_norm[col].str.replace(' ', '', regex=False).str.replace('-', '', regex=False)
+            mask = mask | field_compact.str.contains(word_compact, na=False, regex=False)
         df_f = df_f[mask]
         df_norm = df_norm.loc[df_f.index]
 
