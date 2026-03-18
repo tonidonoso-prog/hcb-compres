@@ -58,8 +58,10 @@ try:
 
     # --- DADES DE PRODUCTES (Full Inici) ---
     ws_in = wb_in['Full Inici']
-    val_dh3 = ws_in['DH3'].value
-    factor_dh3 = float(val_dh3) if val_dh3 is not None else 1.0
+    # Duración expediente en meses desde pestaña Cabecera (B14)
+    duracio_mesos = ws_cab['B14'].value
+    try: duracio_mesos = float(duracio_mesos) if duracio_mesos is not None else 12.0
+    except: duracio_mesos = 12.0
     
     dades_extretes = []
     fila_orig = 6
@@ -74,7 +76,7 @@ try:
                 "codi_hcb": ws_in.cell(row=fila_orig, column=col_cod).value, 
                 "tecnic": ws_in.cell(row=fila_orig, column=col_tec).value,
                 "uml": ws_in.cell(row=fila_orig, column=col_uml).value, 
-                "quantitat": (val_qty_val / 12) * factor_dh3
+                "quantitat": (val_qty_val / 12) * duracio_mesos
             })
         fila_orig += 1
         if fila_orig > 10000: break

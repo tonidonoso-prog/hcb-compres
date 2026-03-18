@@ -48,8 +48,10 @@ try:
 
     # --- DADES DE PRODUCTES (Full Inici) ---
     ws_in = wb_in['Full Inici']
-    val_dh3 = ws_in['DH3'].value
-    factor_dh3 = float(val_dh3) if val_dh3 is not None else 1.0
+    # Duración expediente en meses desde pestaña Cabecera (B14)
+    duracio_mesos = ws_cab['B14'].value
+    try: duracio_mesos = float(duracio_mesos) if duracio_mesos is not None else 12.0
+    except: duracio_mesos = 12.0
     
     mapping = get_column_mapping(wb_in, 'OE')
     print(f"Mapeig detectat: {mapping}")
@@ -91,7 +93,7 @@ try:
             except: 
                 iva = 0.0
 
-            quantitat_calculada = (val_qty_val / 12) * factor_dh3
+            quantitat_calculada = (val_qty_val / 12) * duracio_mesos
 
             dades_extretes.append({
                 "lot": val_w, 

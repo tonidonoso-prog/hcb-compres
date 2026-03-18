@@ -256,9 +256,10 @@ def generate_oe(input_bytes, logo_path='logo.png'):
     num_expedient = ws_cab['B5'].value
 
     ws_in = wb_in['Full Inici']
-    val_dh3 = ws_in['DH3'].value
-    factor_dh3 = float(val_dh3) if val_dh3 is not None else 1.0
-    
+
+    # Duración expediente en meses desde pestaña Cabecera (B14)
+    duracio_mesos = parse_num(ws_cab['B14'].value, 12.0)
+
     mapping = get_column_mapping(wb_in, 'OE')
     col_lot = mapping.get("LOTE", 23)
     col_art = mapping.get("ARTÍCULO", 24)
@@ -290,7 +291,7 @@ def generate_oe(input_bytes, logo_path='logo.png'):
                 "codi_hcb": ws_in.cell(row=fila_orig, column=col_cod).value, 
                 "tecnic": ws_in.cell(row=fila_orig, column=col_tec).value,
                 "uml": ws_in.cell(row=fila_orig, column=col_uml).value, 
-                "quantitat": (val_qty_val / 12) * factor_dh3,
+                "quantitat": (val_qty_val / 12) * duracio_mesos,
                 "preu_max": preu_max, "iva": iva
             })
         fila_orig += 1
@@ -403,9 +404,10 @@ def generate_ot(input_bytes, logo_path='logo.png'):
     num_expedient = ws_cab['B5'].value
 
     ws_in = wb_in['Full Inici']
-    val_dh3 = ws_in['DH3'].value
-    factor_dh3 = float(val_dh3) if val_dh3 is not None else 1.0
-    
+
+    # Duración expediente en meses desde pestaña Cabecera (B14)
+    duracio_mesos = parse_num(ws_cab['B14'].value, 12.0)
+
     mapping = get_column_mapping(wb_in, 'OT')
     col_lot = mapping.get("LOT", 23)
     col_art = mapping.get("ARTICLE", 24)
@@ -430,7 +432,7 @@ def generate_ot(input_bytes, logo_path='logo.png'):
                 "lot": val_w, "article": ws_in.cell(row=fila_orig, column=col_art).value,
                 "codi_hcb": ws_in.cell(row=fila_orig, column=col_cod).value, 
                 "tecnic": ws_in.cell(row=fila_orig, column=col_tec).value,
-                "uml": ws_in.cell(row=fila_orig, column=col_uml).value, "quantitat": (val_qty_val / 12) * factor_dh3
+                "uml": ws_in.cell(row=fila_orig, column=col_uml).value, "quantitat": (val_qty_val / 12) * duracio_mesos
             })
         fila_orig += 1
         if fila_orig > 10000: break
