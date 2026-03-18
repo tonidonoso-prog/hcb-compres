@@ -48,7 +48,7 @@ st.markdown("""
 # 2. CARGA DE DATOS
 @st.cache_data(ttl=3600)
 def cargar_datos():
-    ruta_excel = 'CAT1.xlsx'
+    ruta_excel = 'cat1.xlsx'
     ruta_parquet = 'CAT1.parquet'
     
     # Intento 1: Parquet (Super rápido)

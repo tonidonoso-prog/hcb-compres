@@ -63,16 +63,19 @@ def run_app(dir_path, file_name):
     # Preparamos el entorno para la app hija
     app_full_path = os.path.join(dir_path, file_name)
     old_cwd = os.getcwd()
-    os.chdir(dir_path)
+    
+    # Guardamos la función original para restaurarla pase lo que pase
+    orig_set_page_config = st.set_page_config
     
     try:
+        os.chdir(dir_path)
+        if dir_path not in sys.path:
+            sys.path.insert(0, dir_path)
+            
         with open(file_name, encoding='utf-8') as f:
             code = f.read()
             
-            # Guardamos la función original
-            orig_set_page_config = st.set_page_config
-            
-            # Monkey-patch
+            # Monkey-patch st.set_page_config
             def dummy_set_page_config(*args, **kwargs):
                 pass
             st.set_page_config = dummy_set_page_config
@@ -83,11 +86,13 @@ def run_app(dir_path, file_name):
             
             try:
                 exec(code, custom_globals)
-            finally:
-                st.set_page_config = orig_set_page_config
+            except Exception as e:
+                st.error(f"❌ Error al ejecutar {file_name}: {e}")
+                st.exception(e) # Mostrar traceback para depuración en Cloud
     except Exception as e:
-        st.error(f"Error al cargar {file_name}: {e}")
+        st.error(f"🚨 Error crítico al preparar {file_name}: {e}")
     finally:
+        st.set_page_config = orig_set_page_config
         os.chdir(old_cwd)
 
 if __name__ == "__main__":
