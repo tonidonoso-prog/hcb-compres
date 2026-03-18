@@ -46,7 +46,7 @@ def get_column_mapping(wb_in, annex_type):
                         rv_words = normalize(rv)
                         if not rv_words: continue
                         
-                        if htf in rv or rv in htf:
+                        if len(rv) >= 4 and len(htf) >= 4 and (htf in rv or rv in htf):
                             best_idx = idx + 1
                             best_score = 2.0
                             break
