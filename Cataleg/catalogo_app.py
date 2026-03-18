@@ -139,7 +139,7 @@ hay_busqueda = False
 if busqueda_raw.strip():
     hay_busqueda = True
     words = normalize(busqueda_raw).split()
-    search_fields = ['Material', 'Descripcion Corta', 'Descripcion Larga', 'Nivel 3', 'Nivel 4', 'Nivel 5']
+    search_fields = ['Material', 'Descripcion Corta', 'Nivel 3', 'Nivel 4', 'Nivel 5']
 
     df_norm = pd.DataFrame(index=df_f.index)
     for col in search_fields:
