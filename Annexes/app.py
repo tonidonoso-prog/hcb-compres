@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 import io
-import time
 from generator import generate_am, generate_oe, generate_ot
 
 # --- CONFIGURACIÓN DE PÁGINA ---
@@ -79,7 +78,7 @@ if uploaded_file is not None:
             st.error(f"Error en la generación: {e}")
 
     # Mostrar resultados si existen
-    if st.session_state.outputs:
+    if all(k in st.session_state.outputs for k in ['am', 'oe', 'ot']):
         st.subheader("📦 Archivos Generados")
         res1, res2, res3 = st.columns(3)
         

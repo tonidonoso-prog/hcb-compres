@@ -86,8 +86,6 @@ def cargar_datos():
             
             df = df[req].fillna("").astype(str)
             
-            # Guardamos en parquet para la próxima vez
-            df.to_parquet(ruta_parquet, index=False)
             return df
         except: return pd.DataFrame()
     else: return pd.DataFrame()
@@ -103,7 +101,9 @@ def to_excel(df_in):
 # --- CABECERA ---
 col_logo, col_search = st.columns([0.15, 0.85])
 with col_logo:
-    st.image("https://portalprofessional.clinic.cat/sap/bc/bsp/sap/zbsppubliclgn/imgs/brand_logo.jpg", width=180)
+    logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logo.png')
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=180)
 with col_search:
     st.write("")
     busqueda = st.text_input("Buscador", placeholder="🔍 Buscar material...", label_visibility="collapsed").lower()
@@ -268,8 +268,8 @@ with c_det:
                     st.write(item['Descripción Larga'])
                     
                     st.divider()
-                    if st.button("Copiar Código"):
-                        st.toast(f"Copiado al portapapeles: {item['Material']}")
+                    st.caption("Código de material:")
+                    st.code(item['Material'], language=None)
             else:
                 # Si es una carpeta
                 st.info(f"📂 Carpeta seleccionada: **{seleccion_id}**")

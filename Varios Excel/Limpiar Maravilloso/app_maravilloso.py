@@ -32,12 +32,6 @@ st.title("🪄 Limpiador Maravilloso")
 st.markdown("### Automatización de limpieza de exportaciones SAP")
 st.info("Sube tu archivo `f0.xlsx` sucio y obtén el `maravilloso.xlsx` limpio al instante.")
 
-# Logo fallback (opcional si existe en la carpeta)
-if os.path.exists("../../Annexes/logo.png"):
-    st.sidebar.image("../../Annexes/logo.png", width=200)
-elif os.path.exists("logo.png"):
-    st.sidebar.image("logo.png", width=200)
-
 # Carga de archivos
 uploaded_file = st.file_uploader("Elige el archivo Excel sucio (f0)", type=["xlsx"])
 
