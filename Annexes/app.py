@@ -54,48 +54,84 @@ uploaded_file = st.file_uploader("Sube el Fichero Inicial (HI.xlsm)", type=["xls
 if uploaded_file is not None:
     st.info(f"Archivo detectado: **{uploaded_file.name}**")
     input_bytes = uploaded_file.read()
-    
-    if st.button("🚀 GENERAR TODOS LOS ANEXOS"):
+
+    if st.button("🚀 GENERAR TODOS LOS ANEXOS (Castellano + Català)"):
         try:
             progress_bar = st.progress(0)
             status_text = st.empty()
-            
-            status_text.text("Generando ACO2_PPT_AM (Albarán de Muestras)...")
-            st.session_state.outputs['am'] = generate_am(input_bytes)
+
+            # --- CASTELLANO ---
+            status_text.text("Generando ACO2_PPT_AM (Albarán de Muestras) — Castellano...")
+            st.session_state.outputs['am_es'] = generate_am(input_bytes, lang='es')
+            progress_bar.progress(16)
+
+            status_text.text("Generando ACO3_PCAP_OE (Oferta Económica) — Castellano...")
+            st.session_state.outputs['oe_es'] = generate_oe(input_bytes, lang='es')
             progress_bar.progress(33)
-            
-            status_text.text("Generando ACO3_PCAP_OE (Oferta Económica)...")
-            st.session_state.outputs['oe'] = generate_oe(input_bytes)
+
+            status_text.text("Generando ACO1_PPT_OT (Oferta Técnica) — Castellano...")
+            st.session_state.outputs['ot_es'] = generate_ot(input_bytes, lang='es')
+            progress_bar.progress(50)
+
+            # --- CATALÀ ---
+            status_text.text("Generant ACO2_PPT_AM (Albarà de Mostres) — Català...")
+            st.session_state.outputs['am_cat'] = generate_am(input_bytes, lang='cat')
             progress_bar.progress(66)
-            
-            status_text.text("Generando ACO1_PPT_OT (Oferta Técnica)...")
-            st.session_state.outputs['ot'] = generate_ot(input_bytes)
+
+            status_text.text("Generant ACO3_PCAP_OE (Oferta Econòmica) — Català...")
+            st.session_state.outputs['oe_cat'] = generate_oe(input_bytes, lang='cat')
+            progress_bar.progress(83)
+
+            status_text.text("Generant ACO1_PPT_OT (Oferta Tècnica) — Català...")
+            st.session_state.outputs['ot_cat'] = generate_ot(input_bytes, lang='cat')
             progress_bar.progress(100)
-            
-            status_text.success("¡Generación Completada!")
+
+            status_text.success("¡Generación Completada! / Generació Completada!")
             st.balloons()
         except Exception as e:
             st.error(f"Error en la generación: {e}")
 
     # Mostrar resultados si existen
-    if all(k in st.session_state.outputs for k in ['am', 'oe', 'ot']):
-        st.subheader("📦 Archivos Generados")
+    all_keys = ['am_es', 'oe_es', 'ot_es', 'am_cat', 'oe_cat', 'ot_cat']
+    if all(k in st.session_state.outputs for k in all_keys):
+
+        # --- CASTELLANO ---
+        st.subheader("📦 Archivos Generados — Castellano")
         res1, res2, res3 = st.columns(3)
-        
+
         with res1:
             with st.container(border=True):
                 st.write("### Anexo 1 (OT)")
-                st.download_button("Descargar OT", st.session_state.outputs['ot'], "ACO1_PPT_OT.xlsx", type="primary")
-                
+                st.download_button("Descargar OT (ES)", st.session_state.outputs['ot_es'], "ACO1_PPT_OT_ES.xlsx", type="primary", key="dl_ot_es")
+
         with res2:
             with st.container(border=True):
                 st.write("### Anexo 2 (AM)")
-                st.download_button("Descargar AM", st.session_state.outputs['am'], "ACO2_PPT_AM.xlsx", type="primary")
-                
+                st.download_button("Descargar AM (ES)", st.session_state.outputs['am_es'], "ACO2_PPT_AM_ES.xlsx", type="primary", key="dl_am_es")
+
         with res3:
             with st.container(border=True):
                 st.write("### Anexo 3 (OE)")
-                st.download_button("Descargar OE", st.session_state.outputs['oe'], "ACO3_PCAP_OE.xlsx", type="primary")
+                st.download_button("Descargar OE (ES)", st.session_state.outputs['oe_es'], "ACO3_PCAP_OE_ES.xlsx", type="primary", key="dl_oe_es")
+
+        # --- CATALÀ ---
+        st.subheader("📦 Fitxers Generats — Català")
+        res4, res5, res6 = st.columns(3)
+
+        with res4:
+            with st.container(border=True):
+                st.write("### Annex 1 (OT)")
+                st.download_button("Descarregar OT (CAT)", st.session_state.outputs['ot_cat'], "ACO1_PPT_OT_CAT.xlsx", type="primary", key="dl_ot_cat")
+
+        with res5:
+            with st.container(border=True):
+                st.write("### Annex 2 (AM)")
+                st.download_button("Descarregar AM (CAT)", st.session_state.outputs['am_cat'], "ACO2_PPT_AM_CAT.xlsx", type="primary", key="dl_am_cat")
+
+        with res6:
+            with st.container(border=True):
+                st.write("### Annex 3 (OE)")
+                st.download_button("Descarregar OE (CAT)", st.session_state.outputs['oe_cat'], "ACO3_PCAP_OE_CAT.xlsx", type="primary", key="dl_oe_cat")
 
 else:
     st.session_state.outputs = {}
