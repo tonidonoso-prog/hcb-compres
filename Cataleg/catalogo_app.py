@@ -102,16 +102,17 @@ def _leer_cat2_xlsx(ruta_cat2):
             keep[c] = 'Nombre Proveedor'
         elif _col_match(c, '/GpC', 'GpC', 'Grupo Compras'):
             keep[c] = 'Grupo Compras'
+        elif _col_match(c, '/P', 'P'):
+            keep[c] = '/P'
 
     if 'Material' not in keep.values() or 'Ref Proveedor' not in keep.values():
         return pd.DataFrame()
 
-    cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras')]
+    cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', '/P')]
     df2 = df2[cols_needed].rename(columns=keep).fillna("").astype(str)
-    for col in ('Nombre Proveedor', 'Grupo Compras'):
+    for col in ('Nombre Proveedor', 'Grupo Compras', '/P'):
         if col not in df2.columns:
             df2[col] = ""
-    df2 = df2[df2['Ref Proveedor'].str.strip() != ""]
     df2['Material'] = df2['Material'].str.strip()
     return df2
 
@@ -131,6 +132,14 @@ def _cargar_refs_cat2(base):
             df2 = _leer_cat2_xlsx(ruta_xlsx)
             if not df2.empty:
                 df2.to_parquet(ruta_parquet, index=False)
+
+        if df2.empty:
+            return pd.DataFrame()
+
+        # Solo materiales con al menos una X en /P
+        if '/P' in df2.columns:
+            materiales_p = df2[df2['/P'].str.strip().str.upper() == 'X']['Material'].unique()
+            df2 = df2[df2['Material'].isin(materiales_p)]
 
         if df2.empty:
             return pd.DataFrame()
