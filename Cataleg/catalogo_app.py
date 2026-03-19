@@ -334,7 +334,6 @@ with c_tree:
             icon='table',
             open_all=abrir,
             show_line=True,
-            search=True,  # Habilita búsqueda rápida interna en el árbol
         )
 
 with c_det:
