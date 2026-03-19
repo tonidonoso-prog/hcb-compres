@@ -137,12 +137,12 @@ else:
                 else:
                     df_ref[col] = ""
 
-        st.caption(f"{len(df_ref)} resultados encontrados")
         cols_show = ['Material', 'Descripcion Corta', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', 'Familia', 'Subfamilia']
         cols_show = [c for c in cols_show if c in df_ref.columns]
-        df_show = df_ref[cols_show].copy()
+        df_show = df_ref[cols_show].drop_duplicates().copy()
         df_show.columns = [
             {'Descripcion Corta': 'Descripcion', 'Nombre Proveedor': 'Proveedor',
              'Grupo Compras': 'Grp Compras'}.get(c, c) for c in cols_show
         ]
+        st.caption(f"{len(df_show)} resultados encontrados")
         st.dataframe(df_show, use_container_width=True, hide_index=True)
