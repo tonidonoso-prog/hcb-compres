@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import io
+import json
 import unicodedata
 import streamlit_antd_components as sac
 
@@ -66,6 +67,7 @@ st.markdown("""
 
 # 2. UTILIDADES
 FICHAS_DIR = r"C:\Users\Toni\Clínic Barcelona\DSG - Compres - Coord. Compres - Catàleg\LOGARITME\FICHAS TEC-SEG UNIFICADO"
+FICHAS_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fichas_index.json")
 
 def normalize(text):
     """Quita acentos y pasa a minusculas para busqueda."""
@@ -78,23 +80,23 @@ def normalize(text):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def construir_indice_fichas():
-    """Escanea FICHAS_DIR y devuelve dict {material: {cod_prov: filepath}}.
-    Formato fichero: {material}-{cod_prov}-{ref}.ext
-    """
-    if not os.path.isdir(FICHAS_DIR):
+    """Carga fichas_index.json y devuelve dict {material: {cod_prov: url_sharepoint}}."""
+    if not os.path.exists(FICHAS_INDEX):
         return {}
-    indice = {}
-    for fname in os.listdir(FICHAS_DIR):
-        base, _ = os.path.splitext(fname)
-        parts = base.split('-', 2)   # material, cod_prov, ref  (maxsplit=2)
-        if len(parts) < 2:
-            continue
-        material = parts[0].strip()
-        cod_prov = parts[1].strip()
-        if material not in indice:
-            indice[material] = {}
-        indice[material][cod_prov] = os.path.join(FICHAS_DIR, fname)
-    return indice
+    try:
+        with open(FICHAS_INDEX, encoding="utf-8") as f:
+            flat = json.load(f)   # {"material-codprov": url}
+        indice = {}
+        for key, url in flat.items():
+            parts = key.split("-", 1)
+            if len(parts) == 2:
+                mat, cod = parts
+                if mat not in indice:
+                    indice[mat] = {}
+                indice[mat][cod] = url
+        return indice
+    except Exception:
+        return {}
 
 
 # 3. CARGA DE DATOS
@@ -425,19 +427,9 @@ with c_det:
                     mat_fichas = indice_fichas.get(item['Material'], {})
 
                     def _ficha_btn(ref, prov, cod_prov, key_suffix):
-                        fpath = mat_fichas.get(cod_prov)
-                        if fpath and os.path.exists(fpath):
-                            ext = os.path.splitext(fpath)[1]
-                            fname_dl = f"{item['Material']}-{ref}{ext}"
-                            with open(fpath, 'rb') as f:
-                                data = f.read()
-                            st.download_button(
-                                label="Ficha tecnica",
-                                data=data,
-                                file_name=fname_dl,
-                                key=f"dl_{item['Material']}_{key_suffix}",
-                                use_container_width=False,
-                            )
+                        url = mat_fichas.get(cod_prov)
+                        if url:
+                            st.link_button("Ficha tecnica", url, use_container_width=False)
 
                     if pares_pref or pares_otros:
                         st.divider()
