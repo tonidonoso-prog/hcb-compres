@@ -152,14 +152,24 @@ def _cargar_cat2_completo(base):
 
         # Refs preferentes (X en /P) y todas las refs por material
         rows = []
+        def _pares(group):
+            """Devuelve lista de 'ref||proveedor' deduplicada."""
+            seen, result = set(), []
+            for _, row in group.iterrows():
+                ref = row['Ref Proveedor'].strip()
+                prov = row['Nombre Proveedor'].strip()
+                key = (ref, prov)
+                if ref and key not in seen:
+                    seen.add(key)
+                    result.append(f"{ref}||{prov}")
+            return '\n'.join(result)
+
         for mat, g in df2.groupby('Material'):
             pref = g[g['_pref']]
             rows.append({
                 'Material': mat,
-                'Ref Preferente': _join(pref['Ref Proveedor']) if not pref.empty else '',
-                'Prov Preferente': _join(pref['Nombre Proveedor']) if not pref.empty else '',
-                'Ref Proveedor': _join(g['Ref Proveedor']),
-                'Nombre Proveedor': _join(g['Nombre Proveedor']),
+                'Pares Pref': _pares(pref),
+                'Pares Otros': _pares(g[~g['_pref']]),
                 'Grupo Compras': _join(g['Grupo Compras']),
             })
         df_refs = pd.DataFrame(rows)
@@ -201,16 +211,16 @@ def cargar_datos():
         # Enriquecer con refs de cat2_refs.xlsx y filtrar árbol por /P
         df_refs, materiales_con_p = _cargar_cat2_completo(base)
         if not df_refs.empty:
-            # Merge TODAS las refs en df (para mostrar en ficha)
             df = df.merge(df_refs, on='Material', how='left')
-            for col in ('Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras'):
+            for col in ('Pares Pref', 'Pares Otros', 'Grupo Compras'):
                 df[col] = df[col].fillna("") if col in df.columns else ""
-        if 'Ref Proveedor' not in df.columns:
-            df['Ref Proveedor'] = ""
-            df['Nombre Proveedor'] = ""
-        # Filtrar solo materiales con X en /P (para el árbol)
+        for col in ('Pares Pref', 'Pares Otros', 'Grupo Compras'):
+            if col not in df.columns:
+                df[col] = ""
+        # Filtrar solo materiales con X en /P y deduplicar (cat1 puede tener filas repetidas)
         if materiales_con_p:
             df = df[df['Material'].isin(materiales_con_p)]
+        df = df.drop_duplicates(subset='Material')
         return df
     except Exception:
         return pd.DataFrame()
@@ -382,24 +392,17 @@ with c_det:
                     st.divider()
                     st.markdown("### Descripcion Tecnica")
                     st.write(item['Descripcion Larga'])
-                    ref_pref = item.get('Ref Preferente', '').strip()
-                    prov_pref = item.get('Prov Preferente', '').strip()
-                    ref_todas = item.get('Ref Proveedor', '').strip()
-                    prov_todas = item.get('Nombre Proveedor', '').strip()
-                    if ref_todas:
+                    pares_pref = [p for p in item.get('Pares Pref', '').split('\n') if p.strip()]
+                    pares_otros = [p for p in item.get('Pares Otros', '').split('\n') if p.strip()]
+                    if pares_pref or pares_otros:
                         st.divider()
                         st.markdown("### Referencia Proveedor")
-                        if ref_pref:
-                            st.success(f"**Preferente:** {ref_pref}" + (f"  —  {prov_pref}" if prov_pref else ""))
-                        # Otras refs (las que no son preferentes)
-                        otras_refs = sorted(set(ref_todas.split(' | ')) - set(ref_pref.split(' | '))) if ref_pref else ref_todas.split(' | ')
-                        otras_provs = sorted(set(prov_todas.split(' | ')) - set(prov_pref.split(' | '))) if prov_pref else prov_todas.split(' | ')
-                        otras_refs = [r for r in otras_refs if r.strip()]
-                        otras_provs = [p for p in otras_provs if p.strip()]
-                        if otras_refs:
-                            st.caption("Otras referencias: " + ' | '.join(otras_refs))
-                        if otras_provs:
-                            st.caption("Otros proveedores: " + ' | '.join(otras_provs))
+                        for par in pares_pref:
+                            ref, prov = (par.split('||') + [''])[:2]
+                            st.success(f"**{ref.strip()}**  —  {prov.strip()}")
+                        for par in pares_otros:
+                            ref, prov = (par.split('||') + [''])[:2]
+                            st.caption(f"{ref.strip()}  —  {prov.strip()}")
                     st.divider()
                     st.caption("Codigo de material:")
                     st.code(item['Material'], language=None)
