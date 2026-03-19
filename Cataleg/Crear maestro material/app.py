@@ -32,25 +32,69 @@ def palabras(texto: str) -> set:
 # CARGA DE JERARQUÍA (cat1.xlsx)
 # ---------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
-def cargar_jerarquias() -> tuple[list[dict], list[str]]:
-    """Devuelve (lista de tripletes únicos, lista de nombres Nivel5 para selectbox)."""
+def cargar_catalogo() -> tuple[list[dict], list[str], dict]:
+    """
+    Devuelve:
+      - jerarquias: lista de tripletes únicos {n3, n4, n5}
+      - opciones:   lista de n5 para selectbox
+      - guia:       {codigo_n5: {prefix_corta, suffix_larga, ejemplos[]}}
+    """
     base_cataleg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
     ruta_parquet = os.path.join(base_cataleg, "CAT1.parquet")
-    ruta_xlsx   = os.path.join(base_cataleg, "cat1.xlsx")
+    ruta_xlsx    = os.path.join(base_cataleg, "cat1.xlsx")
 
     try:
         if os.path.exists(ruta_parquet):
-            df = pd.read_parquet(ruta_parquet)
+            df_full = pd.read_parquet(ruta_parquet)
         else:
-            df = pd.read_excel(ruta_xlsx, sheet_name='CAT1', header=0,
-                               dtype=str, usecols=[0, 1, 2], engine='openpyxl')
+            df_full = pd.read_excel(ruta_xlsx, sheet_name='CAT1', header=0,
+                                    dtype=str, engine='openpyxl')
+        # Renombrar por posición (funciona tanto con nombres originales como renombrados)
+        cols = list(df_full.columns)
+        rename = {}
+        if len(cols) > 0: rename[cols[0]] = 'n3'
+        if len(cols) > 1: rename[cols[1]] = 'n4'
+        if len(cols) > 2: rename[cols[2]] = 'n5'
+        if len(cols) > 3: rename[cols[3]] = 'desc_corta'
+        if len(cols) > 4: rename[cols[4]] = 'material'
+        if len(cols) > 5: rename[cols[5]] = 'desc_larga'
+        df_full = df_full.rename(columns=rename)
     except Exception:
-        return [], []
+        return [], [], {}
 
-    df.columns = ['n3', 'n4', 'n5']
-    rows = df.drop_duplicates().dropna(subset=['n5']).fillna("").to_dict('records')
+    df_full = df_full.fillna("")
+
+    # Jerarquías únicas para el scorer
+    rows = df_full[['n3','n4','n5']].drop_duplicates().dropna(subset=['n5']).to_dict('records')
     opciones = [""] + sorted({r['n5'] for r in rows})
-    return rows, opciones
+
+    # Guía por Nivel 5: prefijo corta + sufijo larga + ejemplos
+    guia = {}
+    for n5, grp in df_full[df_full['n5'] != ""].groupby('n5'):
+        codigo = n5.split('-')[0] if '-' in n5 else n5
+
+        # Prefijo más común en desc_corta (primeras 3 palabras)
+        prefijos = (
+            grp['desc_corta']
+            .apply(lambda x: ' '.join(str(x).split()[:3]))
+            .value_counts()
+        )
+        prefix = prefijos.index[0] if len(prefijos) else ""
+
+        # Sufijo más común en desc_larga (últimos 80 chars → buscar "Estéril" o similar)
+        def _sufijo(t):
+            t = str(t).strip()
+            m = re.search(r'(Est[eé]ril.*)', t, re.IGNORECASE)
+            return m.group(1) if m else t[-80:]
+        sufijos = grp['desc_larga'].apply(_sufijo).value_counts()
+        suffix = sufijos.index[0] if len(sufijos) else ""
+
+        # 3 ejemplos representativos
+        ejemplos = grp[['desc_corta','desc_larga']].drop_duplicates().head(3).to_dict('records')
+
+        guia[codigo] = {'prefix': prefix, 'suffix': suffix, 'ejemplos': ejemplos, 'n5': n5}
+
+    return rows, opciones, guia
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +117,37 @@ def _score(query_words: set, row: dict) -> float:
         None, ' '.join(sorted(query_words)), _desc_nivel(row['n5'])
     ).ratio()
     return jaccard * 0.7 + sm * 0.3
+
+def aplicar_guia(desc_corta: str, desc_larga: str, n5: str, guia: dict) -> tuple[str, str]:
+    """Ajusta desc_corta y desc_larga según los patrones reales del Nivel 5."""
+    codigo = n5.split('-')[0] if '-' in n5 else n5
+    entry = guia.get(codigo, {})
+
+    # Corta: anteponer el prefijo del familia si la descripción no lo refleja
+    prefix = entry.get('prefix', '')
+    if prefix and not normalize(desc_corta).startswith(normalize(prefix)):
+        desc_corta = (prefix + ' ' + desc_corta)[:40].strip()
+        # Re-quitar acentos
+        desc_corta = ''.join(
+            c for c in unicodedata.normalize('NFD', desc_corta)
+            if unicodedata.category(c) != 'Mn'
+        ).upper()[:40]
+
+    # Larga: añadir sufijo estándar del familia si no está ya presente + truncar a 250
+    suffix = entry.get('suffix', '')
+    if suffix:
+        kw = suffix.split('.')[0].lower()[:15]
+        if kw and kw not in desc_larga.lower():
+            desc_larga = (desc_larga.rstrip('. ') + '. ' + suffix)
+    desc_larga = desc_larga[:250].rstrip(' ,')
+    # Truncar sin cortar a mitad de frase
+    if len(desc_larga) == 250:
+        last = max(desc_larga.rfind('. '), desc_larga.rfind(', '))
+        if last > 100:
+            desc_larga = desc_larga[:last + 1]
+
+    return desc_corta, desc_larga
+
 
 def asignar_jerarquia(desc_corta: str, desc_larga: str, jerarquias: list[dict]) -> dict:
     """Devuelve el triplete n3/n4/n5 con mayor puntuación."""
@@ -264,7 +339,7 @@ def traducir(texto: str, destino: str) -> str:
 # ---------------------------------------------------------------------------
 # PROCESADO COMPLETO DE UN PDF
 # ---------------------------------------------------------------------------
-def procesar_pdf(pdf_bytes: bytes, filename: str, jerarquias: list[dict]) -> dict:
+def procesar_pdf(pdf_bytes: bytes, filename: str, jerarquias: list[dict], guia: dict) -> dict:
     texto      = extraer_texto(pdf_bytes)
     ref        = extraer_referencia(filename, texto)
     desc_raw   = extraer_descripcion_larga(texto)
@@ -274,6 +349,11 @@ def procesar_pdf(pdf_bytes: bytes, filename: str, jerarquias: list[dict]) -> dic
     desc_corta_es = generar_descripcion_corta(desc_larga_es or desc_raw)
 
     jerar = asignar_jerarquia(desc_corta_es, desc_larga_es or desc_raw, jerarquias)
+
+    # Aplicar guía de catalogación del Nivel 5 asignado
+    n5 = jerar.get('n5', '')
+    desc_corta_es, desc_larga_es = aplicar_guia(desc_corta_es, desc_larga_es, n5, guia)
+    desc_larga_ca = desc_larga_ca[:250]
 
     return {
         "Archivo":                           filename,
@@ -333,9 +413,9 @@ with col_title:
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# CARGAR JERARQUÍA
+# CARGAR CATÁLOGO (jerarquía + guía de catalogación)
 # ---------------------------------------------------------------------------
-jerarquias, opciones_n5 = cargar_jerarquias()
+jerarquias, opciones_n5, guia = cargar_catalogo()
 if not jerarquias:
     st.warning("No se pudo cargar la jerarquía de cat1.xlsx — la clasificación automática no estará disponible.")
 
@@ -370,7 +450,7 @@ if pendientes:
     progress = st.progress(0, text="Procesando y traduciendo...")
     for i, archivo in enumerate(pendientes):
         progress.progress(i / len(pendientes), text=f"Procesando: {archivo.name}")
-        resultado = procesar_pdf(archivo.read(), archivo.name, jerarquias)
+        resultado = procesar_pdf(archivo.read(), archivo.name, jerarquias, guia)
         st.session_state[KEY][archivo.name] = resultado
     progress.progress(1.0, text="Listo")
     progress.empty()
@@ -424,12 +504,32 @@ st.download_button(
 # TEXTO EXTRAÍDO (para consulta)
 # ---------------------------------------------------------------------------
 st.markdown("---")
-st.markdown("#### Texto extraído de cada PDF")
+st.markdown("#### Detalle por PDF")
 for r in resultados:
     with st.expander(f"{r['Archivo']}  —  Confianza jerarquía: {r.get('_confianza', 0)}%"):
+
+        # Ejemplos de catalogación del Nivel 5 asignado
+        n5 = r.get("Nivel 5", "")
+        codigo_n5 = n5.split('-')[0] if '-' in n5 else n5
+        entry = guia.get(codigo_n5, {})
+        ejemplos = entry.get('ejemplos', [])
+        if ejemplos:
+            st.markdown(f"**Guía de catalogación para `{n5}`** — ejemplos reales del catálogo:")
+            for ej in ejemplos:
+                c = str(ej.get('desc_corta', '')).strip()
+                l = str(ej.get('desc_larga', '')).strip()
+                st.markdown(
+                    f"&nbsp;&nbsp;**Corta:** `{c}`  \n"
+                    f"&nbsp;&nbsp;**Larga:** {l[:200]}",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("---")
+
+        # Texto extraído del PDF
         texto = r.get("_texto", "")
         if texto:
-            st.text_area("", value=texto, height=250,
+            st.caption("Texto extraído del PDF:")
+            st.text_area("", value=texto, height=220,
                          key=f"txt_{r['Archivo']}", label_visibility="collapsed")
         else:
             st.warning("No se pudo extraer texto (puede ser imagen escaneada).")
