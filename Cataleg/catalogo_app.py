@@ -77,7 +77,7 @@ def normalize(text):
 # 3. CARGA DE DATOS
 @st.cache_data(ttl=3600)
 def cargar_datos():
-    ruta_excel = 'cat1.xlsx'
+    ruta_excel = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cat1.xlsx')
     if not os.path.exists(ruta_excel):
         return pd.DataFrame()
     try:
@@ -215,7 +215,7 @@ def construir_arbol(datos_json, _key):
                 hijos_n5 = []
                 for _, row in g5.iterrows():
                     label = f"{row['Material']} - {row['Descripcion Corta']}"
-                    hijos_n5.append(sac.TreeItem(label, icon='box-seam'))
+                    hijos_n5.append(sac.TreeItem(label, icon='box-seam', tooltip=row['Descripcion Larga'][:100] + "..."))
                 hijos_n4.append(sac.TreeItem(str(n5), icon='folder', children=hijos_n5))
             hijos_n3.append(sac.TreeItem(str(n4), icon='folder', children=hijos_n4))
         arbol.append(sac.TreeItem(str(n3), icon='folder-fill', children=hijos_n3))
@@ -250,6 +250,7 @@ with c_tree:
             icon='table',
             open_all=abrir,
             show_line=True,
+            search=True,  # Habilita búsqueda rápida interna en el árbol
         )
 
 with c_det:
