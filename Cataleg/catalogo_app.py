@@ -118,12 +118,15 @@ def _leer_cat2_xlsx(ruta_cat2):
 
 
 @st.cache_data(ttl=3600)
-def _cargar_refs_cat2(base):
-    """Carga cat2_refs.xlsx (via parquet si disponible) y agrupa refs por material."""
+def _cargar_cat2_completo(base):
+    """Carga cat2_refs.xlsx (via parquet) y devuelve (df_todas_refs, set_materiales_con_p).
+    - df_todas_refs: todas las refs agrupadas por material (sin filtrar por /P)
+    - set_materiales_con_p: set de materiales que tienen al menos una X en /P
+    """
     ruta_xlsx = os.path.join(base, 'cat2_refs.xlsx')
     ruta_parquet = os.path.join(base, 'cat2_refs.parquet')
     if not os.path.exists(ruta_xlsx):
-        return pd.DataFrame()
+        return pd.DataFrame(), set()
     try:
         if (os.path.exists(ruta_parquet) and
                 os.path.getmtime(ruta_parquet) >= os.path.getmtime(ruta_xlsx)):
@@ -134,24 +137,24 @@ def _cargar_refs_cat2(base):
                 df2.to_parquet(ruta_parquet, index=False)
 
         if df2.empty:
-            return pd.DataFrame()
+            return pd.DataFrame(), set()
 
-        # Solo materiales con al menos una X en /P
+        # Materiales con X en /P
         if '/P' in df2.columns:
-            materiales_p = df2[df2['/P'].str.strip().str.upper() == 'X']['Material'].unique()
-            df2 = df2[df2['Material'].isin(materiales_p)]
+            materiales_con_p = set(df2[df2['/P'].str.strip().str.upper() == 'X']['Material'].unique())
+        else:
+            materiales_con_p = set(df2['Material'].unique())
 
-        if df2.empty:
-            return pd.DataFrame()
-
+        # Todas las refs agrupadas por material (sin filtrar)
         agg = {
             'Ref Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
             'Nombre Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
             'Grupo Compras': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
         }
-        return df2.groupby('Material').agg(agg).reset_index()
+        df_refs = df2.groupby('Material').agg(agg).reset_index()
+        return df_refs, materiales_con_p
     except Exception:
-        return pd.DataFrame()
+        return pd.DataFrame(), set()
 
 
 @st.cache_data(ttl=3600)
@@ -184,15 +187,19 @@ def cargar_datos():
                 df[c] = ""
         df = df[req].fillna("").astype(str)
 
-        # Enriquecer con Ref.Prov de cat2_refs.xlsx
-        df_refs = _cargar_refs_cat2(base)
+        # Enriquecer con refs de cat2_refs.xlsx y filtrar árbol por /P
+        df_refs, materiales_con_p = _cargar_cat2_completo(base)
         if not df_refs.empty:
+            # Merge TODAS las refs en df (para mostrar en ficha)
             df = df.merge(df_refs, on='Material', how='left')
             for col in ('Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras'):
                 df[col] = df[col].fillna("") if col in df.columns else ""
         if 'Ref Proveedor' not in df.columns:
             df['Ref Proveedor'] = ""
             df['Nombre Proveedor'] = ""
+        # Filtrar solo materiales con X en /P (para el árbol)
+        if materiales_con_p:
+            df = df[df['Material'].isin(materiales_con_p)]
         return df
     except Exception:
         return pd.DataFrame()
