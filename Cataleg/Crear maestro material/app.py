@@ -30,13 +30,15 @@ Reglas estrictas:
 
 
 # ---------------------------------------------------------------------------
-# CLIENTE ANTHROPIC (cached para no reconectar en cada rerun)
+# CLIENTE ANTHROPIC
 # ---------------------------------------------------------------------------
-@st.cache_resource
 def get_client():
+    api_key = ""
     try:
         api_key = st.secrets["ANTHROPIC_API_KEY"]
     except Exception:
+        pass
+    if not api_key:
         api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
         return None
