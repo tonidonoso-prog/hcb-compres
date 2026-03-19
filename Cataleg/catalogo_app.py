@@ -142,16 +142,27 @@ def _cargar_cat2_completo(base):
         # Materiales con X en /P
         if '/P' in df2.columns:
             materiales_con_p = set(df2[df2['/P'].str.strip().str.upper() == 'X']['Material'].unique())
+            df2['_pref'] = df2['/P'].str.strip().str.upper() == 'X'
         else:
             materiales_con_p = set(df2['Material'].unique())
+            df2['_pref'] = True
 
-        # Todas las refs agrupadas por material (sin filtrar)
-        agg = {
-            'Ref Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
-            'Nombre Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
-            'Grupo Compras': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
-        }
-        df_refs = df2.groupby('Material').agg(agg).reset_index()
+        def _join(vals):
+            return ' | '.join(sorted(set(v.strip() for v in vals if v.strip())))
+
+        # Refs preferentes (X en /P) y todas las refs por material
+        rows = []
+        for mat, g in df2.groupby('Material'):
+            pref = g[g['_pref']]
+            rows.append({
+                'Material': mat,
+                'Ref Preferente': _join(pref['Ref Proveedor']) if not pref.empty else '',
+                'Prov Preferente': _join(pref['Nombre Proveedor']) if not pref.empty else '',
+                'Ref Proveedor': _join(g['Ref Proveedor']),
+                'Nombre Proveedor': _join(g['Nombre Proveedor']),
+                'Grupo Compras': _join(g['Grupo Compras']),
+            })
+        df_refs = pd.DataFrame(rows)
         return df_refs, materiales_con_p
     except Exception:
         return pd.DataFrame(), set()
@@ -371,12 +382,24 @@ with c_det:
                     st.divider()
                     st.markdown("### Descripcion Tecnica")
                     st.write(item['Descripcion Larga'])
-                    if item.get('Ref Proveedor', '').strip():
+                    ref_pref = item.get('Ref Preferente', '').strip()
+                    prov_pref = item.get('Prov Preferente', '').strip()
+                    ref_todas = item.get('Ref Proveedor', '').strip()
+                    prov_todas = item.get('Nombre Proveedor', '').strip()
+                    if ref_todas:
                         st.divider()
                         st.markdown("### Referencia Proveedor")
-                        st.write(item['Ref Proveedor'])
-                        if item.get('Nombre Proveedor', '').strip():
-                            st.caption(f"Proveedor: {item['Nombre Proveedor']}")
+                        if ref_pref:
+                            st.success(f"**Preferente:** {ref_pref}" + (f"  —  {prov_pref}" if prov_pref else ""))
+                        # Otras refs (las que no son preferentes)
+                        otras_refs = sorted(set(ref_todas.split(' | ')) - set(ref_pref.split(' | '))) if ref_pref else ref_todas.split(' | ')
+                        otras_provs = sorted(set(prov_todas.split(' | ')) - set(prov_pref.split(' | '))) if prov_pref else prov_todas.split(' | ')
+                        otras_refs = [r for r in otras_refs if r.strip()]
+                        otras_provs = [p for p in otras_provs if p.strip()]
+                        if otras_refs:
+                            st.caption("Otras referencias: " + ' | '.join(otras_refs))
+                        if otras_provs:
+                            st.caption("Otros proveedores: " + ' | '.join(otras_provs))
                     st.divider()
                     st.caption("Codigo de material:")
                     st.code(item['Material'], language=None)
