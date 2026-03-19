@@ -86,7 +86,7 @@ def _col_match(col_name, *targets):
 
 
 def _leer_cat2_xlsx(ruta_cat2):
-    """Lee cat2.xlsx, extrae columnas relevantes y devuelve DataFrame limpio."""
+    """Lee cat2_refs.xlsx, extrae columnas relevantes y devuelve DataFrame limpio."""
     try:
         df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='calamine')
     except Exception:
@@ -118,9 +118,9 @@ def _leer_cat2_xlsx(ruta_cat2):
 
 @st.cache_data(ttl=3600)
 def _cargar_refs_cat2(base):
-    """Carga cat2.xlsx (via parquet si disponible) y agrupa refs por material."""
-    ruta_xlsx = os.path.join(base, 'cat2.xlsx')
-    ruta_parquet = os.path.join(base, 'cat2.parquet')
+    """Carga cat2_refs.xlsx (via parquet si disponible) y agrupa refs por material."""
+    ruta_xlsx = os.path.join(base, 'cat2_refs.xlsx')
+    ruta_parquet = os.path.join(base, 'cat2_refs.parquet')
     if not os.path.exists(ruta_xlsx):
         return pd.DataFrame()
     try:
@@ -173,7 +173,7 @@ def cargar_datos():
                 df[c] = ""
         df = df[req].fillna("").astype(str)
 
-        # Enriquecer con Ref.Prov de cat2.xlsx
+        # Enriquecer con Ref.Prov de cat2_refs.xlsx
         df_refs = _cargar_refs_cat2(base)
         if not df_refs.empty:
             df = df.merge(df_refs, on='Material', how='left')

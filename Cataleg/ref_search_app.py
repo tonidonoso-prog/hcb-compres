@@ -24,7 +24,7 @@ def _col_match(col_name, *targets):
 
 
 def _leer_cat2_xlsx(ruta_cat2):
-    """Lee cat2.xlsx, extrae columnas relevantes y devuelve DataFrame limpio."""
+    """Lee cat2_refs.xlsx, extrae columnas relevantes y devuelve DataFrame limpio."""
     try:
         df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='calamine')
     except Exception:
@@ -56,8 +56,8 @@ def _leer_cat2_xlsx(ruta_cat2):
 
 @st.cache_data(ttl=3600)
 def cargar_cat2(base):
-    ruta_xlsx = os.path.join(base, 'cat2.xlsx')
-    ruta_parquet = os.path.join(base, 'cat2.parquet')
+    ruta_xlsx = os.path.join(base, 'cat2_refs.xlsx')
+    ruta_parquet = os.path.join(base, 'cat2_refs.parquet')
     if not os.path.exists(ruta_xlsx):
         return pd.DataFrame()
     try:
@@ -118,7 +118,7 @@ df_cat2 = cargar_cat2(base)
 df_cat1 = cargar_cat1(base)
 
 if df_cat2.empty:
-    st.error("No se pudo cargar cat2.xlsx o no contiene las columnas Cód.M / Ref.Prov.")
+    st.error("No se pudo cargar cat2_refs.xlsx o no contiene las columnas Cód.M / Ref.Prov.")
 elif not busqueda_raw.strip():
     st.info("Introduce una referencia de proveedor para buscar el material correspondiente.")
 else:

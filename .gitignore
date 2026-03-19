@@ -34,9 +34,11 @@ ENV/
 *.xlsm
 *.parquet
 !plantillas/*.xlsx
-!Cataleg/*.xlsx
+!Cataleg/cat1.xlsx
+!Cataleg/cat2_refs.xlsx
 !Cataleg/*.parquet
 !Annexes/CABECERAS.xlsx
+Cataleg/cat2.xlsx
 
 # Logs
 *.log
