@@ -105,22 +105,27 @@ def _cargar_refs_cat2(base):
                 keep[c] = 'Ref Proveedor'
             elif _col_match(c, 'Nom.Prov', 'Nom Prov', 'Nombre Proveedor'):
                 keep[c] = 'Nombre Proveedor'
+            elif _col_match(c, '/GpC', 'GpC', 'Grupo Compras'):
+                keep[c] = 'Grupo Compras'
 
         if 'Material' not in keep.values() or 'Ref Proveedor' not in keep.values():
             return pd.DataFrame()
 
-        cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor')]
+        cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras')]
         df2 = df2[cols_needed].rename(columns=keep).fillna("").astype(str)
-        if 'Nombre Proveedor' not in df2.columns:
-            df2['Nombre Proveedor'] = ""
+        for col in ('Nombre Proveedor', 'Grupo Compras'):
+            if col not in df2.columns:
+                df2[col] = ""
 
         df2 = df2[df2['Ref Proveedor'].str.strip() != ""]
         df2['Material'] = df2['Material'].str.strip()
 
-        df_refs = df2.groupby('Material').agg({
+        agg = {
             'Ref Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
-            'Nombre Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip())))
-        }).reset_index()
+            'Nombre Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
+            'Grupo Compras': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
+        }
+        df_refs = df2.groupby('Material').agg(agg).reset_index()
         return df_refs
     except Exception:
         return pd.DataFrame()
@@ -158,8 +163,8 @@ def cargar_datos():
         df_refs = _cargar_refs_cat2(base)
         if not df_refs.empty:
             df = df.merge(df_refs, on='Material', how='left')
-            df['Ref Proveedor'] = df['Ref Proveedor'].fillna("")
-            df['Nombre Proveedor'] = df['Nombre Proveedor'].fillna("")
+            for col in ('Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras'):
+                df[col] = df[col].fillna("") if col in df.columns else ""
         if 'Ref Proveedor' not in df.columns:
             df['Ref Proveedor'] = ""
             df['Nombre Proveedor'] = ""
@@ -405,6 +410,8 @@ if ref_raw.strip():
             df_enrich['Nivel 3'] = df_enrich['Nivel 3'].fillna("")
             df_enrich['Nivel 4'] = df_enrich['Nivel 4'].fillna("")
             st.caption(f"{len(df_enrich)} materiales encontrados")
-            df_show = df_enrich[['Material', 'Descripcion Corta', 'Ref Proveedor', 'Nombre Proveedor', 'Nivel 3', 'Nivel 4']].copy()
-            df_show.columns = ['Material', 'Descripcion', 'Ref Proveedor', 'Proveedor', 'Familia', 'Subfamilia']
+            if 'Grupo Compras' not in df_enrich.columns:
+                df_enrich['Grupo Compras'] = ""
+            df_show = df_enrich[['Material', 'Descripcion Corta', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', 'Nivel 3', 'Nivel 4']].copy()
+            df_show.columns = ['Material', 'Descripcion', 'Ref Proveedor', 'Proveedor', 'Grp Compras', 'Familia', 'Subfamilia']
             st.dataframe(df_show, use_container_width=True, hide_index=True)
