@@ -59,6 +59,7 @@ def main():
     app_mode = st.selectbox(
         "Selecciona herramienta:",
         ["🪄 Limpiar Maravilloso", "📂 Catálogo Hospital",
+         "🔍 Buscar por Referencia Proveedor",
          "📄 Generador de Anexos", "📋 Extractor PCAP"]
     )
 
@@ -71,6 +72,8 @@ def main():
         run_app(os.path.join(base, "Varios Excel", "Limpiar Maravilloso"), "app_maravilloso.py")
     elif app_mode == "📂 Catálogo Hospital":
         run_app(os.path.join(base, "Cataleg"), "catalogo_app.py")
+    elif app_mode == "🔍 Buscar por Referencia Proveedor":
+        run_app(os.path.join(base, "Cataleg"), "ref_search_app.py")
     elif app_mode == "📄 Generador de Anexos":
         run_app(os.path.join(base, "Annexes"), "app.py")
     elif app_mode == "📋 Extractor PCAP":
