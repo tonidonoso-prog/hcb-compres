@@ -201,9 +201,12 @@ def extraer_texto(pdf_bytes: bytes) -> str:
 # ---------------------------------------------------------------------------
 _JUNK = re.compile(
     r'ctra\.|carretera|km\.|tfno|fax|tel[eé]f|\bwww\b|@|'
-    r'rev\.\s*\d|\d{2}/\d{2}/\d{4}|'
+    r'rev\.\s*\d|\d{2}/\d{2}/\d{4}|\d{2}-\d{2}-\d{4}|'
     r'^\s*ficha\s+t[eé]cnica\s*$|'
-    r'^\s*\d{5}\s',
+    r'^\s*p[aá]g(?:ina)?\s*\d|^\s*\d+\s*/\s*\d+\s*$|'  # page numbers
+    r'^\s*\d{5}\s|'                                       # postal code at start
+    r'\b(s\.l\.|s\.a\.|s\.l\.u\.|s\.a\.u\.|s\.coop\.?)\b|'  # company suffixes
+    r'(?:^|\s)(c/|av\.|avda\.?|avinguda|pol[ií]gono|poligon|apdo\.?|nau\s)\s',
     re.IGNORECASE,
 )
 
@@ -238,36 +241,80 @@ def extraer_referencia(filename: str, texto: str) -> str:
             return val
     return ""
 
+# Tabla de abreviaciones SAP (palabras completas → abreviatura)
+_ABREV = {
+    'cateter': 'CAT', 'catéter': 'CAT',
+    'instrumento': 'INSTRU', 'instrumentos': 'INSTRU',
+    'dispositivo': 'DISP', 'dispositivos': 'DISP',
+    'automatico': 'AUTO', 'automático': 'AUTO',
+    'solucion': 'SOL', 'solución': 'SOL',
+    'introductores': 'INTRO', 'introductor': 'INTRO',
+    'intercambio': 'INTERC',
+    'distensible': 'DIST', 'distensibles': 'DIST',
+    'radiopacas': 'RP', 'radiopaca': 'RP',
+    'quirurgico': 'QUIR', 'quirúrgico': 'QUIR',
+    'quirurgica': 'QUIR', 'quirúrgica': 'QUIR',
+    'diametro': 'DIAM', 'diámetro': 'DIAM',
+    'longitud': 'LONG',
+    'milimetros': 'MM', 'milímetros': 'MM',
+    'centimetros': 'CM', 'centímetros': 'CM',
+    'diferentes': 'DIFER',
+    'seleccionable': 'SEL',
+    'compatibles': 'COMPAT', 'compatible': 'COMPAT',
+    'transparente': 'TRANSP',
+    'esterilizacion': 'ESTERIL', 'esterilización': 'ESTERIL',
+    'reutilizable': 'REUTIL',
+    'antibiotico': 'ATB', 'antibiótico': 'ATB',
+}
+
+# Palabras a eliminar (artículos, preposiciones, conjunciones)
+_STOP_CORTA = {
+    'de','del','la','el','los','las','para','con','en','por','a','al',
+    'un','una','unos','unas','y','e','o','u','que','se',
+}
+
+
+def _norm_sin_acentos(texto: str) -> str:
+    t = unicodedata.normalize('NFD', texto)
+    return ''.join(c for c in t if unicodedata.category(c) != 'Mn')
+
+
 def generar_descripcion_corta(desc_larga: str) -> str:
     """
-    Genera descripción corta SAP (máx 40 chars, mayúsculas, sin acentos)
-    a partir de la descripción larga: elimina etiquetas de campo y toma
-    las primeras palabras con contenido real.
+    Genera descripción corta SAP (máx 40 chars, MAYÚSCULAS, sin acentos).
+    Aplica tabla de abreviaciones y elimina palabras de relleno.
     """
-    # Quitar etiquetas de campo al principio (PRODUCTO:, DENOMINACIÓN:, etc.)
+    # 1. Quitar etiquetas de campo al inicio
     texto = re.sub(
         r'^(PRODUCTO|DESCRIPCI[OÓ]N|INDICACIONES?|DENOMINACI[OÓ]N|NOMBRE)[:\s]+',
         '', desc_larga, flags=re.IGNORECASE,
     ).strip()
-    # Cortar en el primer punto seguido de etiqueta secundaria (MARCA:, MATERIA PRIMA:...)
-    texto = re.split(
-        r'\.\s+(?:MARCA|MATERIA|CARACTER|USO|ESTERIL|PRESENTACI)',
-        texto, flags=re.IGNORECASE,
-    )[0]
-    # Limpiar símbolos y espacios
-    texto = re.sub(r'[®™«»\[\]()\/:,;]', ' ', texto)
+    # 2. Tomar solo la primera frase (hasta el primer punto o etiqueta secundaria)
+    texto = re.split(r'\.\s+(?:MARCA|MATERIA|CARACTER|USO|ESTERIL|PRESENTACI)', texto, flags=re.IGNORECASE)[0]
+    texto = texto.split('.')[0].split(';')[0]
+    # 3. Limpiar símbolos
+    texto = re.sub(r'[®™«»\[\]()\/:,]', ' ', texto)
     texto = re.sub(r'\s+', ' ', texto).strip()
-    # Quitar acentos (SAP no siempre los admite bien)
-    texto_norm = unicodedata.normalize('NFD', texto)
-    texto_norm = ''.join(c for c in texto_norm if unicodedata.category(c) != 'Mn')
-    texto_norm = texto_norm.upper()
-    # Truncar a 40 chars sin cortar a mitad de palabra ni terminar en conjunción
-    if len(texto_norm) > 40:
-        texto_norm = texto_norm[:41].rsplit(' ', 1)[0][:40]
-    # Quitar palabras de relleno al final (conjunciones, preposiciones)
-    _TRAILING = re.compile(r'\s+(Y|O|DE|DEL|LA|EL|LOS|LAS|CON|PARA|POR|EN|A|AL|E|U)$')
-    texto_norm = _TRAILING.sub('', texto_norm).strip()
-    return texto_norm
+    # 4. Aplicar abreviaciones palabra a palabra
+    palabras_out = []
+    for word in texto.split():
+        w_lower = _norm_sin_acentos(word.lower().rstrip('.,;'))
+        if w_lower in _STOP_CORTA:
+            continue
+        abrev = _ABREV.get(w_lower) or _ABREV.get(word.lower())
+        palabras_out.append(abrev if abrev else word)
+    resultado = ' '.join(palabras_out)
+    # 5. Sin acentos, mayúsculas
+    resultado = _norm_sin_acentos(resultado).upper()
+    resultado = re.sub(r'\s+', ' ', resultado).strip()
+    # 6. Si cabe en 40 chars → perfecto
+    if len(resultado) <= 40:
+        return resultado
+    # 7. Si no cabe: reconstruir eliminando palabras menos importantes desde el final
+    words = resultado.split()
+    while len(' '.join(words)) > 40 and len(words) > 1:
+        words.pop()
+    return ' '.join(words)
 
 _CAMPOS_DESC = re.compile(
     r'^(PRODUCTO|DESCRIPCI[OÓ]N|INDICACIONES?|CARACTER[IÍ]STICAS?\s*T[EÉ]CNICAS?'
@@ -299,7 +346,31 @@ def extraer_descripcion_larga(texto: str) -> str:
                 break
     if bloques:
         return ' '.join(bloques)[:1200].strip()
-    return ' '.join(lines)[:1000].strip()
+
+    # Fallback: PDFs sin etiquetas de campo.
+    # Estrategia: saltar el bloque de cabecera (empresa/dirección) buscando la primera
+    # línea substantiva — larga o con alta proporción de minúsculas (frases reales).
+    desc_lines = []
+    in_header = True
+    for l in lines:
+        if _STOP_DESC.match(l):
+            break
+        if in_header:
+            alpha = sum(c.isalpha() for c in l)
+            lower = sum(c.islower() for c in l)
+            ratio_lower = lower / alpha if alpha else 0
+            # Fin de cabecera: línea larga (>60) O con buena proporción de minúsculas (frase real)
+            if len(l) > 60 or (len(l) > 35 and ratio_lower > 0.40):
+                in_header = False
+        if not in_header:
+            desc_lines.append(l)
+            if len(' '.join(desc_lines)) > 800:
+                break
+
+    if desc_lines:
+        return ' '.join(desc_lines)[:1000].strip()
+    # Último recurso: tomar solo líneas con cierta longitud mínima
+    return ' '.join(l for l in lines if len(l) > 25)[:500].strip()
 
 
 # ---------------------------------------------------------------------------
