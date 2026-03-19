@@ -42,6 +42,21 @@ def clean_text(text):
 
 def extract_text(pdf_source):
     """Extrae texto de un PDF (path o file-like). Devuelve texto limpio completo."""
+    # pdfplumber: mejor orden de texto y filtra elementos flotantes
+    try:
+        import pdfplumber, io as _io
+        if isinstance(pdf_source, (str, bytes, bytearray)):
+            src = pdf_source if isinstance(pdf_source, str) else _io.BytesIO(pdf_source)
+        else:
+            src = pdf_source
+        with pdfplumber.open(src) as pdf:
+            pages = [p.extract_text() or "" for p in pdf.pages]
+        texto = "\n".join(t for t in pages if t.strip())
+        if texto.strip():
+            return clean_text(texto)
+    except Exception:
+        pass
+    # Fallback: pypdf
     try:
         reader = PdfReader(pdf_source)
         pages = []

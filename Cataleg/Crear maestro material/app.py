@@ -101,14 +101,22 @@ def _clean_text(text: str) -> str:
 
 
 def extraer_texto(pdf_bytes: bytes) -> str:
+    # pdfplumber: mejor orden de texto y filtra headers/footers flotantes
+    try:
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            pages = [p.extract_text() or "" for p in pdf.pages]
+        texto = "\n\n".join(t.strip() for t in pages if t.strip())
+        if texto:
+            return _clean_text(texto)
+    except Exception:
+        pass
+    # Fallback: pypdf
     try:
         reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-        pages = []
-        for p in reader.pages:
-            t = p.extract_text()
-            if t and t.strip():
-                pages.append(t.strip())
-        return _clean_text("\n\n".join(pages))
+        pages = [p.extract_text() or "" for p in reader.pages]
+        texto = "\n\n".join(t.strip() for t in pages if t.strip())
+        return _clean_text(texto)
     except Exception as e:
         return f"[Error al leer PDF: {e}]"
 
