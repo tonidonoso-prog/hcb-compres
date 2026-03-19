@@ -65,6 +65,8 @@ st.markdown("""
 
 
 # 2. UTILIDADES
+FICHAS_DIR = r"C:\Users\Toni\Clínic Barcelona\DSG - Compres - Coord. Compres - Catàleg\LOGARITME\FICHAS TEC-SEG UNIFICADO"
+
 def normalize(text):
     """Quita acentos y pasa a minusculas para busqueda."""
     if not text:
@@ -72,6 +74,28 @@ def normalize(text):
     text = unicodedata.normalize('NFD', str(text))
     text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
     return text.lower()
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def construir_indice_fichas():
+    """Escanea FICHAS_DIR y devuelve dict {material: {ref_norm: filepath}}.
+    Formato fichero: {material}-{cod_prov}-{ref}.ext
+    """
+    if not os.path.isdir(FICHAS_DIR):
+        return {}
+    indice = {}
+    for fname in os.listdir(FICHAS_DIR):
+        base, ext = os.path.splitext(fname)
+        parts = base.split('-', 2)   # material, cod_prov, ref  (maxsplit=2)
+        if len(parts) < 2:
+            continue
+        material = parts[0].strip()
+        ref = parts[2].strip() if len(parts) > 2 else parts[1].strip()
+        ref_norm = normalize(ref).replace(' ', '').replace('-', '')
+        if material not in indice:
+            indice[material] = {}
+        indice[material][ref_norm] = os.path.join(FICHAS_DIR, fname)
+    return indice
 
 
 # 3. CARGA DE DATOS
@@ -234,6 +258,7 @@ def to_excel(df_in):
 
 
 df = cargar_datos()
+indice_fichas = construir_indice_fichas()
 
 
 # 4. CABECERA
@@ -394,15 +419,43 @@ with c_det:
                     st.write(item['Descripcion Larga'])
                     pares_pref = [p for p in item.get('Pares Pref', '').split('\n') if p.strip()]
                     pares_otros = [p for p in item.get('Pares Otros', '').split('\n') if p.strip()]
+                    mat_fichas = indice_fichas.get(item['Material'], {})
+
+                    def _ficha_btn(ref, prov, key_suffix):
+                        ref_norm = normalize(ref).replace(' ', '').replace('-', '')
+                        fpath = mat_fichas.get(ref_norm)
+                        if fpath and os.path.exists(fpath):
+                            ext = os.path.splitext(fpath)[1]
+                            fname_dl = f"{item['Material']}-{ref}{ext}"
+                            with open(fpath, 'rb') as f:
+                                data = f.read()
+                            st.download_button(
+                                label="Ficha tecnica",
+                                data=data,
+                                file_name=fname_dl,
+                                key=f"dl_{item['Material']}_{key_suffix}",
+                                use_container_width=False,
+                            )
+
                     if pares_pref or pares_otros:
                         st.divider()
                         st.markdown("### Referencia Proveedor")
-                        for par in pares_pref:
+                        for i, par in enumerate(pares_pref):
                             ref, prov = (par.split('||') + [''])[:2]
-                            st.success(f"**{ref.strip()}**  —  {prov.strip()}")
-                        for par in pares_otros:
+                            ref, prov = ref.strip(), prov.strip()
+                            col_txt, col_btn = st.columns([3, 1])
+                            with col_txt:
+                                st.success(f"**{ref}**  —  {prov}")
+                            with col_btn:
+                                _ficha_btn(ref, prov, f"pref_{i}")
+                        for i, par in enumerate(pares_otros):
                             ref, prov = (par.split('||') + [''])[:2]
-                            st.caption(f"{ref.strip()}  —  {prov.strip()}")
+                            ref, prov = ref.strip(), prov.strip()
+                            col_txt, col_btn = st.columns([3, 1])
+                            with col_txt:
+                                st.caption(f"{ref}  —  {prov}")
+                            with col_btn:
+                                _ficha_btn(ref, prov, f"otro_{i}")
                     st.divider()
                     st.caption("Codigo de material:")
                     st.code(item['Material'], language=None)
