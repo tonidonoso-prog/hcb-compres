@@ -70,7 +70,7 @@ def main():
     TOOLS = [
         ("📂", "Catálogo Hospital",          "Cataleg",                              "catalogo_app.py"),
         ("🔍", "Buscar material por referencia", "Cataleg",                           "ref_search_app.py"),
-        ("🧬", "Crear Maestro Material",     "Cataleg/Crear maestro material",       "app.py"),
+        ("🧬", "Crear Maestro Material (Beta)", "Cataleg/Crear maestro material",      "app.py"),
         ("📄", "Generador de Anexos",        "Annexes",                              "app.py"),
         ("📋", "Extractor PCAP",             "Varios PDF/PCAP",                      "app.py"),
         ("🪄", "Limpiar Excel ABC",           "Varios Excel/Limpiar Maravilloso",     "app_maravilloso.py"),
