@@ -8,6 +8,7 @@ from deep_translator import GoogleTranslator
 
 st.set_page_config(page_title="Crear Maestro Material", layout="wide")
 
+
 # ---------------------------------------------------------------------------
 # EXTRACCIÓN DE TEXTO
 # ---------------------------------------------------------------------------
@@ -25,39 +26,127 @@ def extraer_texto(pdf_bytes: bytes) -> str:
 
 
 # ---------------------------------------------------------------------------
-# HEURÍSTICAS DE EXTRACCIÓN
+# FILTROS DE LÍNEAS BASURA (cabeceras, pies, direcciones)
 # ---------------------------------------------------------------------------
-REF_PATTERNS = [
-    r"ref(?:erencia|erencia\.?|\.?\s*:?\s*)([A-Z0-9][A-Z0-9\-\.\/\s]{2,30})",
-    r"c[oó]d(?:igo)?\.?\s*(?:art(?:ículo)?\.?)?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\.\/]{3,25})",
-    r"art(?:ículo)?\.?\s*n[oº°]?\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\.\/]{3,25})",
-    r"\bref\b\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\.\/]{3,25})",
-]
+_JUNK = re.compile(
+    r'ctra\.|carretera|km\.|tfno|fax|tel[eé]f|\bwww\b|@|'
+    r'rev\.\s*\d|\d{2}/\d{2}/\d{4}|'          # revisiones y fechas
+    r'^\s*ficha\s+t[eé]cnica\s*$|'            # etiqueta "FICHA TÉCNICA" sola
+    r'^\s*\d{5}\s',                            # código postal
+    re.IGNORECASE
+)
 
-def _limpiar_linea(line: str) -> str:
-    return re.sub(r'\s+', ' ', line).strip()
+def _es_basura(line: str) -> bool:
+    return bool(_JUNK.search(line))
 
-def extraer_referencia(texto: str) -> str:
-    for pat in REF_PATTERNS:
-        m = re.search(pat, texto, re.IGNORECASE)
-        if m:
-            val = m.group(1).strip().split()[0]
-            if len(val) >= 3:
-                return val
+def lineas_limpias(texto: str) -> list[str]:
+    result = []
+    for l in texto.splitlines():
+        l = re.sub(r'\s+', ' ', l).strip()
+        if len(l) > 3 and not _es_basura(l):
+            result.append(l)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# REFERENCIA: primero del filename, luego del texto
+# ---------------------------------------------------------------------------
+_REF_LABELED = re.compile(
+    r'(?:ref(?:erencia)?|c[oó]d(?:igo)?|art(?:ículo)?|cat(?:alog)?(?:\s*no\.?)?)'
+    r'[\s:\.\-]*([A-Z0-9][A-Z0-9\-\.\/]{2,25})',
+    re.IGNORECASE
+)
+
+def extraer_referencia(filename: str, texto: str) -> str:
+    # 1. Intentar sacar del nombre de fichero: mat-prov-REF.pdf
+    base = os.path.splitext(filename)[0]
+    parts = base.split('-', 2)
+    if len(parts) >= 3 and parts[2].strip():
+        return parts[2].strip()
+
+    # 2. Buscar en el texto con patrones etiquetados
+    m = _REF_LABELED.search(texto)
+    if m:
+        val = m.group(1).strip().split()[0]
+        if len(val) >= 3:
+            return val
     return ""
 
-def extraer_descripcion_corta(texto: str) -> str:
-    for line in texto.splitlines():
-        line = _limpiar_linea(line)
-        if 8 <= len(line) <= 80 and not re.match(r'^[\d\W]+$', line):
-            return line[:40].upper()
+
+# ---------------------------------------------------------------------------
+# NOMBRE DEL PRODUCTO (descripción corta)
+# ---------------------------------------------------------------------------
+def extraer_nombre_producto(texto: str) -> str:
+    """
+    Busca el nombre del producto después de 'FICHA TÉCNICA' o como línea
+    destacada en mayúsculas que no sea basura.
+    """
+    lines = texto.splitlines()
+    despues_ficha = False
+    candidatos = []
+
+    for line in lines:
+        l = re.sub(r'\s+', ' ', line).strip()
+        if not l:
+            continue
+
+        # Activar búsqueda tras "FICHA TÉCNICA"
+        if re.match(r'^\s*ficha\s+t[eé]cnica\s*$', l, re.IGNORECASE):
+            despues_ficha = True
+            continue
+
+        if _es_basura(l):
+            continue
+
+        # Línea inmediatamente tras "FICHA TÉCNICA" → candidato prioritario
+        if despues_ficha and 5 < len(l) <= 80:
+            candidatos.insert(0, l)
+            despues_ficha = False
+            continue
+
+        # Líneas en mayúsculas significativas (nombre de producto típico)
+        if l.isupper() and 8 <= len(l) <= 80 and not re.match(r'^[\d\W]+$', l):
+            candidatos.append(l)
+
+    if candidatos:
+        return candidatos[0][:40].upper()
+
+    # Fallback: primera línea limpia razonable
+    for l in lineas_limpias(texto):
+        if 8 <= len(l) <= 80:
+            return l[:40].upper()
     return ""
 
-def extraer_bloque_principal(texto: str) -> str:
-    """Devuelve los primeros ~1500 chars de texto limpio para traducir."""
-    lines = [_limpiar_linea(l) for l in texto.splitlines() if len(_limpiar_linea(l)) > 5]
-    bloque = " ".join(lines)
-    return bloque[:1500].strip()
+
+# ---------------------------------------------------------------------------
+# DESCRIPCIÓN LARGA: campos etiquetados + características técnicas
+# ---------------------------------------------------------------------------
+_CAMPOS_DESC = re.compile(
+    r'^(PRODUCTO|DESCRIPCI[OÓ]N|INDICACIONES?|CARACTER[IÍ]STICAS?\s*T[EÉ]CNICAS?'
+    r'|USO\s*PREVISTO|COMPOSICI[OÓ]N|MATERIA\s*PRIMA|MARCA|PRESENTACI[OÓ]N'
+    r'|ESTERILIZACI[OÓ]N|PRECAUCIONES?|MODO\s*DE\s*USO)',
+    re.IGNORECASE
+)
+
+def extraer_descripcion_larga(texto: str) -> str:
+    """Recoge párrafos con etiquetas técnicas relevantes."""
+    lines = lineas_limpias(texto)
+    bloques = []
+    capturando = False
+
+    for l in lines:
+        if _CAMPOS_DESC.match(l):
+            capturando = True
+        if capturando:
+            bloques.append(l)
+            if len(' '.join(bloques)) > 1200:
+                break
+
+    if bloques:
+        return ' '.join(bloques)[:1200].strip()
+
+    # Fallback: todo el texto limpio
+    return ' '.join(lines)[:1000].strip()
 
 
 # ---------------------------------------------------------------------------
@@ -67,28 +156,27 @@ def traducir(texto: str, destino: str) -> str:
     if not texto.strip():
         return ""
     try:
-        # Google Translate limita a ~5000 chars; ya trabajamos con ≤1500
-        return GoogleTranslator(source="auto", target=destino).translate(texto)
+        return GoogleTranslator(source="auto", target=destino).translate(texto[:1500])
     except Exception:
-        return texto  # Si falla, devuelve el original sin romper el flujo
+        return texto
 
 
 # ---------------------------------------------------------------------------
-# PROCESADO COMPLETO DE UN PDF
+# PROCESADO COMPLETO
 # ---------------------------------------------------------------------------
 def procesar_pdf(pdf_bytes: bytes, filename: str) -> dict:
     texto = extraer_texto(pdf_bytes)
-    ref = extraer_referencia(texto)
-    desc_corta_raw = extraer_descripcion_corta(texto)
-    bloque = extraer_bloque_principal(texto)
+    ref = extraer_referencia(filename, texto)
+    nombre = extraer_nombre_producto(texto)
+    desc_larga_raw = extraer_descripcion_larga(texto)
 
-    desc_larga_es = traducir(bloque, "es")
-    desc_larga_ca = traducir(bloque, "ca")
-    desc_corta = traducir(desc_corta_raw, "es")[:40].upper() if desc_corta_raw else ""
+    desc_corta_es = traducir(nombre, "es")[:40].upper() if nombre else ""
+    desc_larga_es = traducir(desc_larga_raw, "es")
+    desc_larga_ca = traducir(desc_larga_raw, "ca")
 
     return {
         "Archivo": filename,
-        "Descripción corta material": desc_corta,
+        "Descripción corta material": desc_corta_es,
         "Descripción larga material": desc_larga_es,
         "Descripció llarga material català": desc_larga_ca,
         "referència": ref,
@@ -129,7 +217,7 @@ with col_logo:
         st.image(logo_path, width=150)
 with col_title:
     st.markdown("## Crear Maestro Material")
-    st.caption("Sube fichas técnicas en PDF. Se extraen y traducen los campos automáticamente — edita lo que necesites y descarga el Excel.")
+    st.caption("Sube fichas técnicas en PDF. Se extraen y traducen los campos — edita lo que necesites y descarga el Excel.")
 
 st.markdown("---")
 
@@ -148,7 +236,7 @@ if not archivos:
     st.stop()
 
 # ---------------------------------------------------------------------------
-# PROCESAR (solo pendientes, con spinner por PDF)
+# PROCESAR (solo pendientes)
 # ---------------------------------------------------------------------------
 KEY = "maestro_resultados"
 if KEY not in st.session_state:
@@ -179,7 +267,6 @@ df_res = pd.DataFrame(resultados)
 df_edit = df_res[["Archivo"] + COLS_EXPORT].copy()
 
 st.markdown(f"### {len(df_edit)} material(es) — edita los campos y descarga el Excel")
-st.caption("Descripciones traducidas automáticamente al castellano y catalán. Revisa y ajusta si es necesario.")
 
 df_editado = st.data_editor(
     df_edit,
@@ -211,7 +298,7 @@ st.download_button(
 )
 
 # ---------------------------------------------------------------------------
-# TEXTO EXTRAÍDO (para consulta)
+# TEXTO EXTRAÍDO (para consulta y copia)
 # ---------------------------------------------------------------------------
 st.markdown("---")
 st.markdown("#### Texto extraído de cada PDF")
