@@ -44,7 +44,7 @@ with c1:
 
 with c2:
     st.title("Generador de Anexos")
-    st.write("Generación automatizada de PPT y PCAP a partir del Fichero Inicial (HI).")
+    st.write("Generación automatizada de ACO1, ACO2 y ACO3 a partir del Fichero Inicial.")
 
 st.divider()
 
