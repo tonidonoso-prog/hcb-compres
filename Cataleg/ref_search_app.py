@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import json
 import unicodedata
 
 
@@ -40,13 +41,15 @@ def _leer_cat2_xlsx(ruta_cat2):
             keep[c] = 'Nombre Proveedor'
         elif _col_match(c, '/GpC', 'GpC', 'Grupo Compras'):
             keep[c] = 'Grupo Compras'
+        elif _col_match(c, 'Prov.', 'Prov'):
+            keep[c] = 'Cod Prov'
 
     if 'Material' not in keep.values() or 'Ref Proveedor' not in keep.values():
         return pd.DataFrame()
 
-    cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras')]
+    cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', 'Cod Prov')]
     df2 = df2[cols_needed].rename(columns=keep).fillna("").astype(str)
-    for col in ('Nombre Proveedor', 'Grupo Compras'):
+    for col in ('Nombre Proveedor', 'Grupo Compras', 'Cod Prov'):
         if col not in df2.columns:
             df2[col] = ""
     df2 = df2[df2['Ref Proveedor'].str.strip() != ""]
@@ -117,6 +120,15 @@ base = os.path.dirname(os.path.abspath(__file__))
 df_cat2 = cargar_cat2(base)
 df_cat1 = cargar_cat1(base)
 
+# Cargar indice de fichas tecnicas
+_fichas_path = os.path.join(base, 'fichas_index.json')
+fichas_index = {}
+if os.path.exists(_fichas_path):
+    try:
+        fichas_index = json.load(open(_fichas_path, encoding='utf-8'))
+    except Exception:
+        pass
+
 if df_cat2.empty:
     st.error("No se pudo cargar cat2_refs.xlsx o no contiene las columnas Cód.M / Ref.Prov.")
 elif not busqueda_raw.strip():
@@ -150,12 +162,20 @@ else:
                 else:
                     df_ref[col] = ""
 
-        cols_show = ['Material', 'Descripcion Corta', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', 'Familia', 'Subfamilia']
+        # Añadir URL de ficha tecnica por fila (material + cod_prov)
+        def _ficha_url(row):
+            key = f"{row['Material']}-{row.get('Cod Prov', '').strip()}"
+            return fichas_index.get(key, "")
+
+        df_ref['Ficha'] = df_ref.apply(_ficha_url, axis=1)
+
+        cols_show = ['Material', 'Descripcion Corta', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', 'Familia', 'Subfamilia', 'Ficha']
         cols_show = [c for c in cols_show if c in df_ref.columns]
         df_show = df_ref[cols_show].drop_duplicates().copy()
-        df_show.columns = [
-            {'Descripcion Corta': 'Descripcion', 'Nombre Proveedor': 'Proveedor',
-             'Grupo Compras': 'Grp Compras'}.get(c, c) for c in cols_show
-        ]
+        rename = {'Descripcion Corta': 'Descripcion', 'Nombre Proveedor': 'Proveedor', 'Grupo Compras': 'Grp Compras'}
+        df_show.columns = [rename.get(c, c) for c in cols_show]
         st.caption(f"{len(df_show)} resultados encontrados")
-        st.dataframe(df_show, use_container_width=True, hide_index=True)
+        col_cfg = {}
+        if 'Ficha' in df_show.columns:
+            col_cfg['Ficha'] = st.column_config.LinkColumn("Ficha", display_text="Abrir ficha")
+        st.dataframe(df_show, use_container_width=True, hide_index=True, column_config=col_cfg)
