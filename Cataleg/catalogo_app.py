@@ -75,6 +75,57 @@ def normalize(text):
 
 
 # 3. CARGA DE DATOS
+
+def _col_match(col_name, *targets):
+    """Compara nombre de columna contra targets, ignorando acentos y mayusculas."""
+    cn = normalize(str(col_name).strip().rstrip('.'))
+    for t in targets:
+        if cn == normalize(t.rstrip('.')):
+            return True
+    return False
+
+
+@st.cache_data(ttl=3600)
+def _cargar_refs_cat2(base):
+    """Carga cat2.xlsx y devuelve DataFrame con Material, Ref Proveedor, Nombre Proveedor."""
+    ruta_cat2 = os.path.join(base, 'cat2.xlsx')
+    if not os.path.exists(ruta_cat2):
+        return pd.DataFrame()
+    try:
+        try:
+            df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='calamine')
+        except Exception:
+            df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='openpyxl')
+
+        keep = {}
+        for c in df2.columns:
+            if _col_match(c, 'Cod.M', 'Cód.M'):
+                keep[c] = 'Material'
+            elif _col_match(c, 'Ref.Prov', 'Ref Prov'):
+                keep[c] = 'Ref Proveedor'
+            elif _col_match(c, 'Nom.Prov', 'Nom Prov', 'Nombre Proveedor'):
+                keep[c] = 'Nombre Proveedor'
+
+        if 'Material' not in keep.values() or 'Ref Proveedor' not in keep.values():
+            return pd.DataFrame()
+
+        cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor')]
+        df2 = df2[cols_needed].rename(columns=keep).fillna("").astype(str)
+        if 'Nombre Proveedor' not in df2.columns:
+            df2['Nombre Proveedor'] = ""
+
+        df2 = df2[df2['Ref Proveedor'].str.strip() != ""]
+        df2['Material'] = df2['Material'].str.strip()
+
+        df_refs = df2.groupby('Material').agg({
+            'Ref Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
+            'Nombre Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip())))
+        }).reset_index()
+        return df_refs
+    except Exception:
+        return pd.DataFrame()
+
+
 @st.cache_data(ttl=3600)
 def cargar_datos():
     base = os.path.dirname(os.path.abspath(__file__))
@@ -104,32 +155,11 @@ def cargar_datos():
         df = df[req].fillna("").astype(str)
 
         # Enriquecer con Ref.Prov de cat2.xlsx
-        ruta_cat2 = os.path.join(base, 'cat2.xlsx')
-        if os.path.exists(ruta_cat2):
-            try:
-                try:
-                    df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='calamine')
-                except Exception:
-                    df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='openpyxl')
-                keep = {}
-                for c in df2.columns:
-                    cl = str(c).strip()
-                    if cl == 'Cod.M': keep[c] = 'Material'
-                    elif cl == 'Ref.Prov': keep[c] = 'Ref Proveedor'
-                    elif cl == 'Nom.Prov.': keep[c] = 'Nombre Proveedor'
-                if 'Material' in keep.values() and 'Ref Proveedor' in keep.values():
-                    df2 = df2.rename(columns=keep)[list(keep.values())].fillna("").astype(str)
-                    df2 = df2[df2['Ref Proveedor'].str.strip() != ""]
-                    # Agrupar refs por material (un material puede tener varios proveedores)
-                    df_refs = df2.groupby('Material').agg({
-                        'Ref Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip()))),
-                        'Nombre Proveedor': lambda x: ' | '.join(sorted(set(v.strip() for v in x if v.strip())))
-                    }).reset_index()
-                    df = df.merge(df_refs, on='Material', how='left')
-                    df['Ref Proveedor'] = df['Ref Proveedor'].fillna("")
-                    df['Nombre Proveedor'] = df['Nombre Proveedor'].fillna("")
-            except Exception:
-                pass
+        df_refs = _cargar_refs_cat2(base)
+        if not df_refs.empty:
+            df = df.merge(df_refs, on='Material', how='left')
+            df['Ref Proveedor'] = df['Ref Proveedor'].fillna("")
+            df['Nombre Proveedor'] = df['Nombre Proveedor'].fillna("")
         if 'Ref Proveedor' not in df.columns:
             df['Ref Proveedor'] = ""
             df['Nombre Proveedor'] = ""
@@ -339,28 +369,42 @@ ref_raw = st.text_input(
 
 if ref_raw.strip():
     words_ref = normalize(ref_raw).split()
-    df_ref = df.copy()
 
-    # Busqueda multi-palabra + compacta sobre Ref Proveedor y Nombre Proveedor
-    ref_fields = ['Ref Proveedor', 'Nombre Proveedor']
-    df_ref_norm = pd.DataFrame(index=df_ref.index)
-    for col in ref_fields:
-        df_ref_norm[col] = df_ref[col].apply(normalize)
+    # Buscar directamente en cat2 (fuente de verdad de Ref.Prov y Cód.M)
+    _base = os.path.dirname(os.path.abspath(__file__))
+    df_cat2 = _cargar_refs_cat2(_base)
 
-    for word in words_ref:
-        mask = pd.Series(False, index=df_ref.index)
-        word_compact = word.replace(' ', '').replace('-', '')
-        for col in ref_fields:
-            mask = mask | df_ref_norm[col].str.contains(word, na=False, regex=False)
-            field_compact = df_ref_norm[col].str.replace(' ', '', regex=False).str.replace('-', '', regex=False)
-            mask = mask | field_compact.str.contains(word_compact, na=False, regex=False)
-        df_ref = df_ref[mask]
-        df_ref_norm = df_ref_norm.loc[df_ref.index]
-
-    if df_ref.empty:
-        st.warning("No se encontraron materiales con esa referencia.")
+    if df_cat2.empty:
+        st.error("No se pudo cargar cat2.xlsx o no tiene las columnas Cód.M / Ref.Prov.")
     else:
-        st.caption(f"{len(df_ref)} materiales encontrados")
-        df_show = df_ref[['Material', 'Descripcion Corta', 'Ref Proveedor', 'Nombre Proveedor', 'Nivel 3', 'Nivel 4']].copy()
-        df_show.columns = ['Material', 'Descripcion', 'Ref Proveedor', 'Proveedor', 'Familia', 'Subfamilia']
-        st.dataframe(df_show, use_container_width=True, hide_index=True)
+        df_ref = df_cat2.copy()
+        ref_fields = ['Ref Proveedor', 'Nombre Proveedor']
+        df_ref_norm = pd.DataFrame(index=df_ref.index)
+        for col in ref_fields:
+            df_ref_norm[col] = df_ref[col].apply(normalize)
+
+        for word in words_ref:
+            mask = pd.Series(False, index=df_ref.index)
+            word_compact = word.replace(' ', '').replace('-', '')
+            for col in ref_fields:
+                mask = mask | df_ref_norm[col].str.contains(word, na=False, regex=False)
+                field_compact = df_ref_norm[col].str.replace(' ', '', regex=False).str.replace('-', '', regex=False)
+                mask = mask | field_compact.str.contains(word_compact, na=False, regex=False)
+            df_ref = df_ref[mask]
+            df_ref_norm = df_ref_norm.loc[df_ref.index]
+
+        if df_ref.empty:
+            st.warning("No se encontraron materiales con esa referencia.")
+        else:
+            # Enriquecer con descripcion de cat1 si existe
+            df_enrich = df_ref.merge(
+                df[['Material', 'Descripcion Corta', 'Nivel 3', 'Nivel 4']].drop_duplicates('Material'),
+                on='Material', how='left'
+            )
+            df_enrich['Descripcion Corta'] = df_enrich['Descripcion Corta'].fillna("")
+            df_enrich['Nivel 3'] = df_enrich['Nivel 3'].fillna("")
+            df_enrich['Nivel 4'] = df_enrich['Nivel 4'].fillna("")
+            st.caption(f"{len(df_enrich)} materiales encontrados")
+            df_show = df_enrich[['Material', 'Descripcion Corta', 'Ref Proveedor', 'Nombre Proveedor', 'Nivel 3', 'Nivel 4']].copy()
+            df_show.columns = ['Material', 'Descripcion', 'Ref Proveedor', 'Proveedor', 'Familia', 'Subfamilia']
+            st.dataframe(df_show, use_container_width=True, hide_index=True)
