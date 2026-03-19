@@ -1,93 +1,78 @@
 import streamlit as st
 import pandas as pd
-import anthropic
-import base64
+import pypdf
+import re
 import io
-import json
 import os
 
 st.set_page_config(page_title="Crear Maestro Material", layout="wide")
 
 # ---------------------------------------------------------------------------
-# PROMPT
+# EXTRACCIÓN DE TEXTO
 # ---------------------------------------------------------------------------
-PROMPT = """Eres un experto en compras hospitalarias. A partir de esta ficha técnica de producto sanitario, extrae los siguientes campos y devuelve SOLO un JSON válido, sin texto adicional:
-
-{
-  "descripcion_corta": "...",
-  "descripcion_larga_es": "...",
-  "descripcio_llarga_ca": "...",
-  "referencia": "..."
-}
-
-Reglas estrictas:
-- "descripcion_corta": máximo 40 caracteres, EN MAYÚSCULAS, sin artículos ni marca comercial. Ejemplo: "AGUJA SUBCUTANEA 21G 0.8X25MM"
-- "descripcion_larga_es": descripción técnica completa en castellano. Incluye características, materiales, medidas, esterilidad, uso previsto, etc.
-- "descripcio_llarga_ca": mateixa descripció tècnica però en català correcte.
-- "referencia": código o referencia del fabricante/proveedor. Si hay varias, separa con " / ".
-- Si no encuentras un campo, usa cadena vacía "".
-- Devuelve SOLO el JSON, sin bloques de código ni texto adicional."""
-
-
-# ---------------------------------------------------------------------------
-# CLIENTE ANTHROPIC
-# ---------------------------------------------------------------------------
-def get_client():
-    api_key = ""
+def extraer_texto(pdf_bytes: bytes) -> str:
     try:
-        api_key = st.secrets["ANTHROPIC_API_KEY"]
-    except Exception:
-        pass
-    if not api_key:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return None
-    return anthropic.Anthropic(api_key=api_key)
-
-
-# ---------------------------------------------------------------------------
-# PROCESADO DE PDF
-# ---------------------------------------------------------------------------
-def procesar_pdf(client, pdf_bytes: bytes, filename: str) -> dict:
-    pdf_b64 = base64.standard_b64encode(pdf_bytes).decode()
-    try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1500,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": pdf_b64,
-                        },
-                    },
-                    {"type": "text", "text": PROMPT},
-                ],
-            }],
-        )
-        raw = response.content[0].text.strip()
-        # Limpiar posibles bloques ```json ... ```
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        data = json.loads(raw.strip())
-        return {
-            "Archivo": filename,
-            "Descripción corta material": data.get("descripcion_corta", ""),
-            "Descripción larga material": data.get("descripcion_larga_es", ""),
-            "Descripció llarga material català": data.get("descripcio_llarga_ca", ""),
-            "referència": data.get("referencia", ""),
-            "_error": "",
-        }
-    except json.JSONDecodeError:
-        return {"Archivo": filename, "_error": f"JSON inválido: {raw[:300]}"}
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        paginas = []
+        for page in reader.pages:
+            t = page.extract_text() or ""
+            if t.strip():
+                paginas.append(t.strip())
+        return "\n\n".join(paginas)
     except Exception as e:
-        return {"Archivo": filename, "_error": str(e)}
+        return f"[Error al leer PDF: {e}]"
+
+
+# ---------------------------------------------------------------------------
+# HEURÍSTICAS DE EXTRACCIÓN
+# ---------------------------------------------------------------------------
+REF_PATTERNS = [
+    r"ref(?:erencia|erencia\.?|\.?\s*:?\s*)([A-Z0-9][A-Z0-9\-\.\/\s]{2,30})",
+    r"c[oó]d(?:igo)?\.?\s*(?:art(?:ículo)?\.?)?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\.\/]{3,25})",
+    r"art(?:ículo)?\.?\s*n[oº°]?\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\.\/]{3,25})",
+    r"\bref\b\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\.\/]{3,25})",
+]
+
+def _limpiar_linea(line: str) -> str:
+    return re.sub(r'\s+', ' ', line).strip()
+
+def extraer_referencia(texto: str) -> str:
+    for pat in REF_PATTERNS:
+        m = re.search(pat, texto, re.IGNORECASE)
+        if m:
+            val = m.group(1).strip().split()[0]  # primera palabra del match
+            if len(val) >= 3:
+                return val
+    return ""
+
+def extraer_descripcion_corta(texto: str) -> str:
+    """Coge la primera línea significativa (entre 8 y 80 chars) como candidata."""
+    for line in texto.splitlines():
+        line = _limpiar_linea(line)
+        if 8 <= len(line) <= 80 and not re.match(r'^[\d\W]+$', line):
+            return line[:40].upper()
+    return ""
+
+def extraer_descripcion_larga(texto: str) -> str:
+    """Devuelve los primeros ~800 caracteres de texto limpio."""
+    lines = [_limpiar_linea(l) for l in texto.splitlines() if len(_limpiar_linea(l)) > 5]
+    bloque = " ".join(lines)
+    return bloque[:800].strip()
+
+
+def procesar_pdf(pdf_bytes: bytes, filename: str) -> dict:
+    texto = extraer_texto(pdf_bytes)
+    ref = extraer_referencia(texto)
+    desc_corta = extraer_descripcion_corta(texto)
+    desc_larga = extraer_descripcion_larga(texto)
+    return {
+        "Archivo": filename,
+        "Descripción corta material": desc_corta,
+        "Descripción larga material": desc_larga,
+        "Descripció llarga material català": "",
+        "referència": ref,
+        "_texto": texto,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -106,10 +91,10 @@ def to_excel(df: pd.DataFrame) -> bytes:
     with pd.ExcelWriter(out, engine="xlsxwriter") as writer:
         df_exp.to_excel(writer, index=False, sheet_name="Maestro")
         ws = writer.sheets["Maestro"]
-        ws.set_column(0, 0, 42)   # corta
-        ws.set_column(1, 1, 70)   # larga ES
-        ws.set_column(2, 2, 70)   # llarga CA
-        ws.set_column(3, 3, 28)   # ref
+        ws.set_column(0, 0, 42)
+        ws.set_column(1, 1, 70)
+        ws.set_column(2, 2, 70)
+        ws.set_column(3, 3, 28)
     return out.getvalue()
 
 
@@ -123,101 +108,71 @@ with col_logo:
         st.image(logo_path, width=150)
 with col_title:
     st.markdown("## Crear Maestro Material")
-    st.caption("Sube fichas técnicas en PDF y genera automáticamente las descripciones para SAP.")
+    st.caption("Sube fichas técnicas en PDF. Se extraen los campos automáticamente — edita lo que necesites y descarga el Excel.")
 
 st.markdown("---")
-
-# ---------------------------------------------------------------------------
-# VERIFICAR API KEY
-# ---------------------------------------------------------------------------
-client = get_client()
-if client is None:
-    st.error(
-        "No se encontró la clave de API de Anthropic. "
-        "Añade **ANTHROPIC_API_KEY** en los Secrets de Streamlit Cloud "
-        "(Settings → Secrets)."
-    )
-    st.stop()
 
 # ---------------------------------------------------------------------------
 # UPLOAD
 # ---------------------------------------------------------------------------
 archivos = st.file_uploader(
-    "Sube una o varias fichas técnicas en PDF",
+    "Fichas técnicas (PDF)",
     type=["pdf"],
     accept_multiple_files=True,
-    help="Puedes arrastrar varios PDFs a la vez.",
+    label_visibility="collapsed",
 )
 
 if not archivos:
-    st.info("Sube al menos un PDF para comenzar.")
+    st.info("Sube uno o varios PDFs de fichas técnicas para comenzar.")
     st.stop()
 
 # ---------------------------------------------------------------------------
-# PROCESAR (solo los nuevos o si se pulsa reprocesar)
+# PROCESAR (cachear por nombre+tamaño para no reprocesar en cada rerun)
 # ---------------------------------------------------------------------------
 KEY = "maestro_resultados"
 if KEY not in st.session_state:
     st.session_state[KEY] = {}
 
 nombres_subidos = {f.name for f in archivos}
-nombres_cached = set(st.session_state[KEY].keys())
+# Eliminar los que ya no están
+for r in list(st.session_state[KEY].keys()):
+    if r not in nombres_subidos:
+        del st.session_state[KEY][r]
 
-pendientes = [f for f in archivos if f.name not in nombres_cached]
-retirados = nombres_cached - nombres_subidos
-for r in retirados:
-    del st.session_state[KEY][r]
+pendientes = [f for f in archivos if f.name not in st.session_state[KEY]]
+for archivo in pendientes:
+    resultado = procesar_pdf(archivo.read(), archivo.name)
+    st.session_state[KEY][archivo.name] = resultado
 
-if pendientes:
-    progress = st.progress(0, text="Procesando fichas...")
-    for i, archivo in enumerate(pendientes):
-        progress.progress((i) / len(pendientes), text=f"Procesando: {archivo.name}")
-        resultado = procesar_pdf(client, archivo.read(), archivo.name)
-        st.session_state[KEY][archivo.name] = resultado
-    progress.progress(1.0, text="Listo")
-    progress.empty()
-
-# ---------------------------------------------------------------------------
-# CONSTRUIR DATAFRAME DE RESULTADOS
-# ---------------------------------------------------------------------------
 resultados = list(st.session_state[KEY].values())
+
+# ---------------------------------------------------------------------------
+# TABLA EDITABLE
+# ---------------------------------------------------------------------------
 df_res = pd.DataFrame(resultados)
+df_edit = df_res[["Archivo"] + COLS_EXPORT].copy()
 
-errores = df_res[df_res.get("_error", pd.Series(dtype=str)).fillna("") != ""] if "_error" in df_res.columns else pd.DataFrame()
-if not errores.empty:
-    with st.expander(f"⚠️ {len(errores)} error(es) al procesar", expanded=True):
-        for _, row in errores.iterrows():
-            st.error(f"**{row['Archivo']}**: {row.get('_error', '')}")
-
-df_ok = df_res[df_res.get("_error", pd.Series(dtype=str)).fillna("") == ""].copy() if "_error" in df_res.columns else df_res.copy()
-df_ok = df_ok.drop(columns=["_error", "Archivo"], errors="ignore")
-
-if df_ok.empty:
-    st.warning("No hay resultados válidos todavía.")
-    st.stop()
-
-# ---------------------------------------------------------------------------
-# TABLA EDITABLE + DESCARGA
-# ---------------------------------------------------------------------------
-st.markdown(f"### {len(df_ok)} material(es) extraído(s)")
-st.caption("Puedes editar cualquier celda antes de descargar el Excel.")
+st.markdown(f"### {len(df_edit)} material(es)  —  edita los campos y descarga el Excel")
+st.caption("La descripción corta se ha rellenado con la primera línea del PDF. Revisa y ajusta.")
 
 df_editado = st.data_editor(
-    df_ok,
+    df_edit,
     use_container_width=True,
     hide_index=True,
-    num_rows="dynamic",
+    num_rows="fixed",
+    disabled=["Archivo"],
     column_config={
+        "Archivo": st.column_config.TextColumn("Archivo", width="medium"),
         "Descripción corta material": st.column_config.TextColumn(
-            "Descripción corta material", max_chars=40, width="medium"
+            "Desc. corta (máx 40)", max_chars=40, width="medium"
         ),
         "Descripción larga material": st.column_config.TextColumn(
-            "Descripción larga material", width="large"
+            "Desc. larga ES", width="large"
         ),
         "Descripció llarga material català": st.column_config.TextColumn(
-            "Descripció llarga material català", width="large"
+            "Desc. llarga CA", width="large"
         ),
-        "referència": st.column_config.TextColumn("referència", width="small"),
+        "referència": st.column_config.TextColumn("Referència", width="small"),
     },
 )
 
@@ -227,5 +182,19 @@ st.download_button(
     file_name="maestro_material.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     type="primary",
-    use_container_width=False,
 )
+
+# ---------------------------------------------------------------------------
+# TEXTO EXTRAÍDO (para que el usuario pueda copiar)
+# ---------------------------------------------------------------------------
+st.markdown("---")
+st.markdown("#### Texto extraído de cada PDF")
+st.caption("Úsalo para copiar datos que la extracción automática no haya captado correctamente.")
+
+for r in resultados:
+    with st.expander(r["Archivo"]):
+        texto = r.get("_texto", "")
+        if texto:
+            st.text_area("", value=texto, height=300, key=f"txt_{r['Archivo']}", label_visibility="collapsed")
+        else:
+            st.warning("No se pudo extraer texto de este PDF (puede ser una imagen escaneada).")
