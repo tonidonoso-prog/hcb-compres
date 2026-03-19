@@ -179,11 +179,21 @@ _CAMPOS_DESC = re.compile(
     re.IGNORECASE,
 )
 
+# Secciones que indican fin de la descripción técnica (tablas, refs, notas legales...)
+_STOP_DESC = re.compile(
+    r'^(REFERENCIAS?|REFERENCIES|CATALOG|TABLA\s*DE|ESPECIFICACIONES?\s*T[EÉ]CNICAS?'
+    r'|NOTAS?\s*LEGALES?|CONDICIONES?\s*DE\s*USO|INSTRUCCIONES?\s*DE\s*USO'
+    r'|ADVERTENCIAS?|CONTRAINDICACIONES?|FECHA\s*DE\s*REVISI)',
+    re.IGNORECASE,
+)
+
 def extraer_descripcion_larga(texto: str) -> str:
     lines = lineas_limpias(texto)
     bloques = []
     capturando = False
     for l in lines:
+        if _STOP_DESC.match(l):
+            break                       # cortar antes de tablas/referencias
         if _CAMPOS_DESC.match(l):
             capturando = True
         if capturando:
