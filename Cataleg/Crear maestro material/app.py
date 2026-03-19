@@ -191,11 +191,33 @@ def extraer_descripcion_larga(texto: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# TRADUCCIÓN
+# DETECCIÓN DE IDIOMA Y TRADUCCIÓN
 # ---------------------------------------------------------------------------
+_ES_WORDS = {
+    'de','del','la','el','los','las','en','con','para','por','que','es','son',
+    'se','su','sus','al','un','una','nos','lo','le','les','como','pero','si',
+    'este','esta','estos','estas','hay','tiene','tienen','para','entre','sobre',
+    'sin','más','también','según','mediante','durante','cada','donde','cuyo',
+}
+
+def _es_castellano(texto: str) -> bool:
+    """True si el texto es predominantemente castellano."""
+    # Presencia de caracteres específicos del español
+    if re.search(r'[ñÑ]', texto):
+        return True
+    # Ratio de palabras castellanas comunes
+    words = re.findall(r'\b[a-záéíóúüA-ZÁÉÍÓÚÜ]{2,}\b', texto.lower())
+    if not words:
+        return False
+    hits = sum(1 for w in words if w in _ES_WORDS)
+    return (hits / len(words)) > 0.08  # más del 8% son palabras castellanas típicas
+
 def traducir(texto: str, destino: str) -> str:
     if not texto.strip():
         return ""
+    # Si ya está en castellano y el destino es castellano, no traducir
+    if destino == "es" and _es_castellano(texto):
+        return texto.strip()
     try:
         return GoogleTranslator(source="auto", target=destino).translate(texto[:1500])
     except Exception:
@@ -211,7 +233,8 @@ def procesar_pdf(pdf_bytes: bytes, filename: str, jerarquias: list[dict]) -> dic
     nombre      = extraer_nombre_producto(texto)
     desc_raw    = extraer_descripcion_larga(texto)
 
-    desc_corta_es = traducir(nombre, "es")[:40].upper() if nombre else ""
+    # Descripción corta: usar siempre el texto original del PDF (no traducir — es el nombre del producto)
+    desc_corta_es = nombre[:40].upper() if nombre else ""
     desc_larga_es = traducir(desc_raw, "es")
     desc_larga_ca = traducir(desc_raw, "ca")
 
