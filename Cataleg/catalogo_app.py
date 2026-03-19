@@ -78,23 +78,22 @@ def normalize(text):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def construir_indice_fichas():
-    """Escanea FICHAS_DIR y devuelve dict {material: {ref_norm: filepath}}.
+    """Escanea FICHAS_DIR y devuelve dict {material: {cod_prov: filepath}}.
     Formato fichero: {material}-{cod_prov}-{ref}.ext
     """
     if not os.path.isdir(FICHAS_DIR):
         return {}
     indice = {}
     for fname in os.listdir(FICHAS_DIR):
-        base, ext = os.path.splitext(fname)
+        base, _ = os.path.splitext(fname)
         parts = base.split('-', 2)   # material, cod_prov, ref  (maxsplit=2)
         if len(parts) < 2:
             continue
         material = parts[0].strip()
-        ref = parts[2].strip() if len(parts) > 2 else parts[1].strip()
-        ref_norm = normalize(ref).replace(' ', '').replace('-', '')
+        cod_prov = parts[1].strip()
         if material not in indice:
             indice[material] = {}
-        indice[material][ref_norm] = os.path.join(FICHAS_DIR, fname)
+        indice[material][cod_prov] = os.path.join(FICHAS_DIR, fname)
     return indice
 
 
@@ -128,16 +127,19 @@ def _leer_cat2_xlsx(ruta_cat2):
             keep[c] = 'Grupo Compras'
         elif _col_match(c, '/P', 'P'):
             keep[c] = '/P'
+        elif _col_match(c, 'Prov.', 'Prov'):
+            keep[c] = 'Cod Prov'
 
     if 'Material' not in keep.values() or 'Ref Proveedor' not in keep.values():
         return pd.DataFrame()
 
-    cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', '/P')]
+    cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', '/P', 'Cod Prov')]
     df2 = df2[cols_needed].rename(columns=keep).fillna("").astype(str)
-    for col in ('Nombre Proveedor', 'Grupo Compras', '/P'):
+    for col in ('Nombre Proveedor', 'Grupo Compras', '/P', 'Cod Prov'):
         if col not in df2.columns:
             df2[col] = ""
     df2['Material'] = df2['Material'].str.strip()
+    df2['Cod Prov'] = df2['Cod Prov'].str.strip()
     return df2
 
 
@@ -177,15 +179,16 @@ def _cargar_cat2_completo(base):
         # Refs preferentes (X en /P) y todas las refs por material
         rows = []
         def _pares(group):
-            """Devuelve lista de 'ref||proveedor' deduplicada."""
+            """Devuelve lista de 'ref||proveedor||cod_prov' deduplicada."""
             seen, result = set(), []
             for _, row in group.iterrows():
                 ref = row['Ref Proveedor'].strip()
                 prov = row['Nombre Proveedor'].strip()
-                key = (ref, prov)
+                cod = row['Cod Prov'].strip() if 'Cod Prov' in row else ''
+                key = (ref, prov, cod)
                 if ref and key not in seen:
                     seen.add(key)
-                    result.append(f"{ref}||{prov}")
+                    result.append(f"{ref}||{prov}||{cod}")
             return '\n'.join(result)
 
         for mat, g in df2.groupby('Material'):
@@ -421,9 +424,8 @@ with c_det:
                     pares_otros = [p for p in item.get('Pares Otros', '').split('\n') if p.strip()]
                     mat_fichas = indice_fichas.get(item['Material'], {})
 
-                    def _ficha_btn(ref, prov, key_suffix):
-                        ref_norm = normalize(ref).replace(' ', '').replace('-', '')
-                        fpath = mat_fichas.get(ref_norm)
+                    def _ficha_btn(ref, prov, cod_prov, key_suffix):
+                        fpath = mat_fichas.get(cod_prov)
                         if fpath and os.path.exists(fpath):
                             ext = os.path.splitext(fpath)[1]
                             fname_dl = f"{item['Material']}-{ref}{ext}"
@@ -441,21 +443,21 @@ with c_det:
                         st.divider()
                         st.markdown("### Referencia Proveedor")
                         for i, par in enumerate(pares_pref):
-                            ref, prov = (par.split('||') + [''])[:2]
-                            ref, prov = ref.strip(), prov.strip()
+                            parts = (par.split('||') + ['', ''])[:3]
+                            ref, prov, cod_prov = parts[0].strip(), parts[1].strip(), parts[2].strip()
                             col_txt, col_btn = st.columns([3, 1])
                             with col_txt:
                                 st.success(f"**{ref}**  —  {prov}")
                             with col_btn:
-                                _ficha_btn(ref, prov, f"pref_{i}")
+                                _ficha_btn(ref, prov, cod_prov, f"pref_{i}")
                         for i, par in enumerate(pares_otros):
-                            ref, prov = (par.split('||') + [''])[:2]
-                            ref, prov = ref.strip(), prov.strip()
+                            parts = (par.split('||') + ['', ''])[:3]
+                            ref, prov, cod_prov = parts[0].strip(), parts[1].strip(), parts[2].strip()
                             col_txt, col_btn = st.columns([3, 1])
                             with col_txt:
                                 st.caption(f"{ref}  —  {prov}")
                             with col_btn:
-                                _ficha_btn(ref, prov, f"otro_{i}")
+                                _ficha_btn(ref, prov, cod_prov, f"otro_{i}")
                     st.divider()
                     st.caption("Codigo de material:")
                     st.code(item['Material'], language=None)
