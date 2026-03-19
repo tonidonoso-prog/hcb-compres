@@ -141,31 +141,36 @@ def extraer_referencia(filename: str, texto: str) -> str:
             return val
     return ""
 
-def extraer_nombre_producto(texto: str) -> str:
-    lines = texto.splitlines()
-    despues_ficha = False
-    candidatos = []
-    for line in lines:
-        l = re.sub(r'\s+', ' ', line).strip()
-        if not l:
-            continue
-        if re.match(r'^\s*ficha\s+t[eé]cnica\s*$', l, re.IGNORECASE):
-            despues_ficha = True
-            continue
-        if _es_basura(l):
-            continue
-        if despues_ficha and 5 < len(l) <= 80:
-            candidatos.insert(0, l)
-            despues_ficha = False
-            continue
-        if l.isupper() and 8 <= len(l) <= 80 and not re.match(r'^[\d\W]+$', l):
-            candidatos.append(l)
-    if candidatos:
-        return candidatos[0][:40].upper()
-    for l in lineas_limpias(texto):
-        if 8 <= len(l) <= 80:
-            return l[:40].upper()
-    return ""
+def generar_descripcion_corta(desc_larga: str) -> str:
+    """
+    Genera descripción corta SAP (máx 40 chars, mayúsculas, sin acentos)
+    a partir de la descripción larga: elimina etiquetas de campo y toma
+    las primeras palabras con contenido real.
+    """
+    # Quitar etiquetas de campo al principio (PRODUCTO:, DENOMINACIÓN:, etc.)
+    texto = re.sub(
+        r'^(PRODUCTO|DESCRIPCI[OÓ]N|INDICACIONES?|DENOMINACI[OÓ]N|NOMBRE)[:\s]+',
+        '', desc_larga, flags=re.IGNORECASE,
+    ).strip()
+    # Cortar en el primer punto seguido de etiqueta secundaria (MARCA:, MATERIA PRIMA:...)
+    texto = re.split(
+        r'\.\s+(?:MARCA|MATERIA|CARACTER|USO|ESTERIL|PRESENTACI)',
+        texto, flags=re.IGNORECASE,
+    )[0]
+    # Limpiar símbolos y espacios
+    texto = re.sub(r'[®™«»\[\]()\/:,;]', ' ', texto)
+    texto = re.sub(r'\s+', ' ', texto).strip()
+    # Quitar acentos (SAP no siempre los admite bien)
+    texto_norm = unicodedata.normalize('NFD', texto)
+    texto_norm = ''.join(c for c in texto_norm if unicodedata.category(c) != 'Mn')
+    texto_norm = texto_norm.upper()
+    # Truncar a 40 chars sin cortar a mitad de palabra ni terminar en conjunción
+    if len(texto_norm) > 40:
+        texto_norm = texto_norm[:41].rsplit(' ', 1)[0][:40]
+    # Quitar palabras de relleno al final (conjunciones, preposiciones)
+    _TRAILING = re.compile(r'\s+(Y|O|DE|DEL|LA|EL|LOS|LAS|CON|PARA|POR|EN|A|AL|E|U)$')
+    texto_norm = _TRAILING.sub('', texto_norm).strip()
+    return texto_norm
 
 _CAMPOS_DESC = re.compile(
     r'^(PRODUCTO|DESCRIPCI[OÓ]N|INDICACIONES?|CARACTER[IÍ]STICAS?\s*T[EÉ]CNICAS?'
@@ -228,17 +233,15 @@ def traducir(texto: str, destino: str) -> str:
 # PROCESADO COMPLETO DE UN PDF
 # ---------------------------------------------------------------------------
 def procesar_pdf(pdf_bytes: bytes, filename: str, jerarquias: list[dict]) -> dict:
-    texto       = extraer_texto(pdf_bytes)
-    ref         = extraer_referencia(filename, texto)
-    nombre      = extraer_nombre_producto(texto)
-    desc_raw    = extraer_descripcion_larga(texto)
+    texto      = extraer_texto(pdf_bytes)
+    ref        = extraer_referencia(filename, texto)
+    desc_raw   = extraer_descripcion_larga(texto)
 
-    # Descripción corta: usar siempre el texto original del PDF (no traducir — es el nombre del producto)
-    desc_corta_es = nombre[:40].upper() if nombre else ""
     desc_larga_es = traducir(desc_raw, "es")
     desc_larga_ca = traducir(desc_raw, "ca")
+    desc_corta_es = generar_descripcion_corta(desc_larga_es or desc_raw)
 
-    jerar = asignar_jerarquia(desc_corta_es or nombre, desc_raw, jerarquias)
+    jerar = asignar_jerarquia(desc_corta_es, desc_larga_es or desc_raw, jerarquias)
 
     return {
         "Archivo":                           filename,
