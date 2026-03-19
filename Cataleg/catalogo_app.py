@@ -88,9 +88,9 @@ def _col_match(col_name, *targets):
 def _leer_cat2_xlsx(ruta_cat2):
     """Lee cat2_refs.xlsx, extrae columnas relevantes y devuelve DataFrame limpio."""
     try:
-        df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='calamine')
+        df2 = pd.read_excel(ruta_cat2, header=0, dtype=str, engine='calamine')
     except Exception:
-        df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='openpyxl')
+        df2 = pd.read_excel(ruta_cat2, header=0, dtype=str, engine='openpyxl')
 
     keep = {}
     for c in df2.columns:
