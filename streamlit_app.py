@@ -68,11 +68,12 @@ def main():
 
     # --- NAVEGACIÓN CON BOTONES ---
     TOOLS = [
-        ("📂", "Catálogo Hospital",          "Cataleg",                      "catalogo_app.py"),
-        ("🔍", "Buscar por Ref. Proveedor",  "Cataleg",                      "ref_search_app.py"),
-        ("📄", "Generador de Anexos",        "Annexes",                      "app.py"),
-        ("📋", "Extractor PCAP",             "Varios PDF/PCAP",              "app.py"),
-        ("🪄", "Limpiar Maravilloso",        "Varios Excel/Limpiar Maravilloso", "app_maravilloso.py"),
+        ("📂", "Catálogo Hospital",          "Cataleg",                              "catalogo_app.py"),
+        ("🔍", "Buscar por Ref. Proveedor",  "Cataleg",                              "ref_search_app.py"),
+        ("🧬", "Crear Maestro Material",     "Cataleg/Crear maestro material",       "app.py"),
+        ("📄", "Generador de Anexos",        "Annexes",                              "app.py"),
+        ("📋", "Extractor PCAP",             "Varios PDF/PCAP",                      "app.py"),
+        ("🪄", "Limpiar Maravilloso",        "Varios Excel/Limpiar Maravilloso",     "app_maravilloso.py"),
     ]
 
     if "nav_tool" not in st.session_state:
