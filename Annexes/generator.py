@@ -18,53 +18,72 @@ def get_column_mapping(wb_in, annex_type, lang='es'):
         if not os.path.exists(cab_file):
             cab_file = fname
             if not os.path.exists(cab_file):
-                print(f"{fname} not found")
-                return {}
+                raise ValueError(f"No se ha encontrado el fichero de cabeceras: {fname}")
 
         df_map = pd.read_excel(cab_file, sheet_name=annex_type, header=None)
         annex_headers = [str(h).strip() for h in df_map.iloc[0].fillna("").tolist()]
         hi_headers_to_find = [str(h).strip().upper() for h in df_map.iloc[1].fillna("").tolist()]
-        
+
         ws_in = wb_in['Full Inici']
         mapping = {}
-        
+        fuzzy_matches = []
+        not_found = []
+
         for r_idx in [4, 5, 6, 7]:
             row_vals = [str(ws_in.cell(row=r_idx, column=c).value).strip().upper() for c in range(1, 150)]
             for ah, htf in zip(annex_headers, hi_headers_to_find):
                 if ah in mapping: continue
                 if htf == "NAN" or htf == "": continue
-                
+
                 if htf in row_vals:
                     mapping[ah] = row_vals.index(htf) + 1
                 else:
                     best_idx = -1
                     best_score = 0
+                    best_match_text = ""
                     htf_words = normalize(htf)
                     if not htf_words: continue
-                    
+
                     for idx, rv in enumerate(row_vals):
                         if rv == "" or rv == "NONE": continue
                         rv_words = normalize(rv)
                         if not rv_words: continue
-                        
+
                         if len(rv) >= 4 and len(htf) >= 4 and (htf in rv or rv in htf):
                             best_idx = idx + 1
                             best_score = 2.0
+                            best_match_text = rv
                             break
-                            
+
                         intersection = htf_words.intersection(rv_words)
                         score = len(intersection) / max(len(htf_words), len(rv_words))
                         if score > best_score and score >= 0.5:
                             best_score = score
                             best_idx = idx + 1
-                            
+                            best_match_text = rv
+
                     if best_score > 0:
                         mapping[ah] = best_idx
-                        
-        return mapping
+                        if best_score < 2.0:
+                            fuzzy_matches.append(f"'{ah}' → fuzzy match '{best_match_text}' (score {best_score:.0%})")
+
+        # Detectar columnas no encontradas
+        for ah, htf in zip(annex_headers, hi_headers_to_find):
+            if htf == "NAN" or htf == "": continue
+            if ah not in mapping:
+                not_found.append(ah)
+
+        warnings = []
+        if not_found:
+            warnings.append(f"Columnas no encontradas en el HI: {', '.join(not_found)}")
+        if fuzzy_matches:
+            warnings.append("Columnas mapeadas por similitud (revisar): " + "; ".join(fuzzy_matches))
+
+        return mapping, warnings
     except Exception as e:
-        print(f"Error loading mapping: {e}")
-        return {}
+        if isinstance(e, ValueError):
+            raise
+        raise ValueError(f"Error leyendo cabeceras ({annex_type}, {lang}): {e}")
 
 def apply_style(ws, rng, text=None, fill=None, font=None, align=None, border=None):
     if not align:
@@ -129,7 +148,9 @@ def generate_am(input_bytes, logo_path='logo.png', lang='es'):
     # --- DADES DE PRODUCTES (Full Inici) ---
     ws_in = wb_in['Full Inici']
 
-    mapping = get_column_mapping(wb_in, 'AM', lang=lang)
+    mapping, map_warnings = get_column_mapping(wb_in, 'AM', lang=lang)
+    if not mapping:
+        raise ValueError(f"AM ({lang}): No se ha podido mapear ninguna columna del HI. Revisa el fichero.")
     col_lot = mapping.get(t['col_lot'], mapping.get("LOTE", mapping.get("LOT", 23)))
     col_art = mapping.get(t['col_art'], mapping.get("ARTÍCULO", mapping.get("ARTICLE", 24)))
     col_cod = mapping.get(t['col_cod'], mapping.get("CÓDIGO HCB", mapping.get("CODI HCB", 1)))
@@ -160,17 +181,23 @@ def generate_am(input_bytes, logo_path='logo.png', lang='es'):
         fila_orig += 1
         if fila_orig > 10000: break
 
+    # --- VALIDACIÓN ---
+    issues = list(map_warnings)
+    if not dades_extretes:
+        issues.insert(0, "No se han extraído filas de datos del HI")
+    if issues:
+        raise ValueError(f"AM ({lang.upper()}): " + " | ".join(issues))
+
     cols = [t['col_lot'], t['col_art'], t['col_cod'], t['col_tec'],
             t['col_den_lic'], t['col_ref'], t['col_req'], t['col_pres']]
 
     df_final = pd.DataFrame(columns=cols)
-    if dades_extretes:
-        df_temp = pd.DataFrame(dades_extretes)
-        df_final[t['col_lot']] = df_temp["lot"]
-        df_final[t['col_art']] = df_temp["article"]
-        df_final[t['col_cod']] = df_temp["codi_hcb"]
-        df_final[t['col_tec']] = df_temp["tecnic"]
-        df_final[t['col_req']] = df_temp["requerides"]
+    df_temp = pd.DataFrame(dades_extretes)
+    df_final[t['col_lot']] = df_temp["lot"]
+    df_final[t['col_art']] = df_temp["article"]
+    df_final[t['col_cod']] = df_temp["codi_hcb"]
+    df_final[t['col_tec']] = df_temp["tecnic"]
+    df_final[t['col_req']] = df_temp["requerides"]
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -339,7 +366,9 @@ def generate_oe(input_bytes, logo_path='logo.png', lang='es'):
             'col_import_total': "IMPORTE TOTAL con descuento(IVA INCLUIDO)",
         }
 
-    mapping = get_column_mapping(wb_in, 'OE', lang=lang)
+    mapping, map_warnings = get_column_mapping(wb_in, 'OE', lang=lang)
+    if not mapping:
+        raise ValueError(f"OE ({lang}): No se ha podido mapear ninguna columna del HI. Revisa el fichero.")
     col_lot = mapping.get(t['col_lot'], mapping.get("LOTE", mapping.get("LOT", 23)))
     col_art = mapping.get(t['col_art'], mapping.get("ARTÍCULO", mapping.get("ARTICLE", 24)))
     col_cod = mapping.get(t['col_cod'], mapping.get("CÓDIGO HCB", mapping.get("CODI HCB", 1)))
@@ -376,11 +405,17 @@ def generate_oe(input_bytes, logo_path='logo.png', lang='es'):
         fila_orig += 1
         if fila_orig > 10000: break
 
+    # --- VALIDACIÓN ---
+    issues = list(map_warnings)
+    if not dades_extretes:
+        issues.insert(0, "No se han extraído filas de datos del HI")
+    if issues:
+        raise ValueError(f"OE ({lang.upper()}): " + " | ".join(issues))
+
     cols = [t['col_lot'], t['col_art'], t['col_tec'], t['col_cod'], t['col_uml'], t['col_qty'], t['col_pre'], t['col_iva'], t['col_bi_total'], t['col_den_lic'], t['col_ref_lic'], t['col_bi_ofert'], t['col_iva_ofert'], t['col_bi_total_ofert'], t['col_import_total']]
     df_final = pd.DataFrame(columns=cols)
-    if dades_extretes:
-        df_temp = pd.DataFrame(dades_extretes)
-        df_final[t['col_lot']] = df_temp["lot"]; df_final[t['col_art']] = df_temp["article"]; df_final[t['col_tec']] = df_temp["tecnic"]; df_final[t['col_cod']] = df_temp["codi_hcb"]; df_final[t['col_uml']] = df_temp["uml"]; df_final[t['col_qty']] = df_temp["quantitat"]; df_final[t['col_pre']] = df_temp["preu_max"]; df_final[t['col_iva']] = df_temp["iva"]
+    df_temp = pd.DataFrame(dades_extretes)
+    df_final[t['col_lot']] = df_temp["lot"]; df_final[t['col_art']] = df_temp["article"]; df_final[t['col_tec']] = df_temp["tecnic"]; df_final[t['col_cod']] = df_temp["codi_hcb"]; df_final[t['col_uml']] = df_temp["uml"]; df_final[t['col_qty']] = df_temp["quantitat"]; df_final[t['col_pre']] = df_temp["preu_max"]; df_final[t['col_iva']] = df_temp["iva"]
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -536,7 +571,9 @@ def generate_ot(input_bytes, logo_path='logo.png', lang='cat'):
             'col_fab': "NOMBRE DEL FABRICANTE", 'col_marca': "MARCA", 'col_ref_fab': "REF. MATERIAL DEL FABRICANTE",
         }
 
-    mapping = get_column_mapping(wb_in, 'OT', lang=lang)
+    mapping, map_warnings = get_column_mapping(wb_in, 'OT', lang=lang)
+    if not mapping:
+        raise ValueError(f"OT ({lang}): No se ha podido mapear ninguna columna del HI. Revisa el fichero.")
     col_lot = mapping.get(t['col_lot'], mapping.get("LOT", mapping.get("LOTE", 23)))
     col_art = mapping.get(t['col_art'], mapping.get("ARTICLE", mapping.get("ARTÍCULO", 24)))
     col_cod = mapping.get(t['col_cod'], mapping.get("CODI HCB", mapping.get("CÓDIGO HCB", 1)))
@@ -564,6 +601,13 @@ def generate_ot(input_bytes, logo_path='logo.png', lang='cat'):
         fila_orig += 1
         if fila_orig > 10000: break
 
+    # --- VALIDACIÓN ---
+    issues = list(map_warnings)
+    if not dades_extretes:
+        issues.insert(0, "No se han extraído filas de datos del HI")
+    if issues:
+        raise ValueError(f"OT ({lang.upper()}): " + " | ".join(issues))
+
     cols = [t['col_lot'], t['col_art'], t['col_cod'], t['col_tec'],
             t['col_qty'], t['col_uml'], t['col_den_lic'],
             t['col_desc_lic'], t['col_ref_mat'],
@@ -573,14 +617,13 @@ def generate_ot(input_bytes, logo_path='logo.png', lang='cat'):
             t['col_fab'], t['col_marca'], t['col_ref_fab']]
 
     df_final = pd.DataFrame(columns=cols)
-    if dades_extretes:
-        df_temp = pd.DataFrame(dades_extretes)
-        df_final[t['col_lot']] = df_temp["lot"]
-        df_final[t['col_art']] = df_temp["article"]
-        df_final[t['col_cod']] = df_temp["codi_hcb"]
-        df_final[t['col_tec']] = df_temp["tecnic"]
-        df_final[t['col_qty']] = df_temp["quantitat"]
-        df_final[t['col_uml']] = df_temp["uml"]
+    df_temp = pd.DataFrame(dades_extretes)
+    df_final[t['col_lot']] = df_temp["lot"]
+    df_final[t['col_art']] = df_temp["article"]
+    df_final[t['col_cod']] = df_temp["codi_hcb"]
+    df_final[t['col_tec']] = df_temp["tecnic"]
+    df_final[t['col_qty']] = df_temp["quantitat"]
+    df_final[t['col_uml']] = df_temp["uml"]
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
