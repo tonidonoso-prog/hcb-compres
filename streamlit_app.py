@@ -24,6 +24,17 @@ header {visibility: hidden;}
     padding-left: 1rem !important;
 }
 [data-testid="stSidebar"] {display: none;}
+
+/* Nav buttons */
+div[data-testid="stHorizontalBlock"] button[kind="secondary"].nav-btn {
+    border-radius: 12px !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    white-space: normal !important;
+    height: auto !important;
+    min-height: 70px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -55,29 +66,34 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # --- NAVEGACIÓN EN PÁGINA PRINCIPAL (funciona en móvil) ---
-    app_mode = st.selectbox(
-        "Selecciona herramienta:",
-        ["🪄 Limpiar Maravilloso", "📂 Catálogo Hospital",
-         "🔍 Buscar material por referencia proveedor",
-         "📄 Generador de Anexos", "📋 Extractor PCAP"]
-    )
+    # --- NAVEGACIÓN CON BOTONES ---
+    TOOLS = [
+        ("📂", "Catálogo Hospital",          "Cataleg",                      "catalogo_app.py"),
+        ("🔍", "Buscar por Ref. Proveedor",  "Cataleg",                      "ref_search_app.py"),
+        ("📄", "Generador de Anexos",        "Annexes",                      "app.py"),
+        ("📋", "Extractor PCAP",             "Varios PDF/PCAP",              "app.py"),
+        ("🪄", "Limpiar Maravilloso",        "Varios Excel/Limpiar Maravilloso", "app_maravilloso.py"),
+    ]
+
+    if "nav_tool" not in st.session_state:
+        st.session_state["nav_tool"] = TOOLS[0][1]
+
+    cols = st.columns(len(TOOLS))
+    for col, (icon, label, _, _f) in zip(cols, TOOLS):
+        selected = st.session_state["nav_tool"] == label
+        with col:
+            # Highlight active button with primary type
+            btn_type = "primary" if selected else "secondary"
+            if st.button(f"{icon}\n{label}", key=f"nav_{label}", use_container_width=True, type=btn_type):
+                st.session_state["nav_tool"] = label
+                st.rerun()
 
     st.divider()
 
     # --- LANZAMIENTO ---
     base = os.path.dirname(os.path.abspath(__file__))
-
-    if app_mode == "🪄 Limpiar Maravilloso":
-        run_app(os.path.join(base, "Varios Excel", "Limpiar Maravilloso"), "app_maravilloso.py")
-    elif app_mode == "📂 Catálogo Hospital":
-        run_app(os.path.join(base, "Cataleg"), "catalogo_app.py")
-    elif app_mode == "🔍 Buscar material por referencia proveedor":
-        run_app(os.path.join(base, "Cataleg"), "ref_search_app.py")
-    elif app_mode == "📄 Generador de Anexos":
-        run_app(os.path.join(base, "Annexes"), "app.py")
-    elif app_mode == "📋 Extractor PCAP":
-        run_app(os.path.join(base, "Varios PDF", "PCAP"), "app.py")
+    active = next((t for t in TOOLS if t[1] == st.session_state["nav_tool"]), TOOLS[0])
+    run_app(os.path.join(base, active[2]), active[3])
 
 
 def run_app(dir_path, file_name):
