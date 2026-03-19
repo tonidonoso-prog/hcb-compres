@@ -156,10 +156,17 @@ def _cargar_cat2_completo(base):
     if not os.path.exists(ruta_xlsx):
         return pd.DataFrame(), set()
     try:
-        if (os.path.exists(ruta_parquet) and
-                os.path.getmtime(ruta_parquet) >= os.path.getmtime(ruta_xlsx)):
+        _CAT2_COLS = {'Material', 'Ref Proveedor', 'Nombre Proveedor', '/P', 'Cod Prov'}
+        parquet_ok = (
+            os.path.exists(ruta_parquet) and
+            os.path.getmtime(ruta_parquet) >= os.path.getmtime(ruta_xlsx)
+        )
+        if parquet_ok:
             df2 = pd.read_parquet(ruta_parquet)
-        else:
+            # Si el parquet es de una versión anterior sin columna /P → regenerar
+            if not _CAT2_COLS.issubset(set(df2.columns)):
+                parquet_ok = False
+        if not parquet_ok:
             df2 = _leer_cat2_xlsx(ruta_xlsx)
             if not df2.empty:
                 df2.to_parquet(ruta_parquet, index=False)
