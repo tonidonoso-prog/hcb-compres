@@ -23,39 +23,52 @@ def _col_match(col_name, *targets):
     return False
 
 
+def _leer_cat2_xlsx(ruta_cat2):
+    """Lee cat2.xlsx, extrae columnas relevantes y devuelve DataFrame limpio."""
+    try:
+        df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='calamine')
+    except Exception:
+        df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='openpyxl')
+
+    keep = {}
+    for c in df2.columns:
+        if _col_match(c, 'Cod.M', 'Cód.M'):
+            keep[c] = 'Material'
+        elif _col_match(c, 'Ref.Prov', 'Ref Prov'):
+            keep[c] = 'Ref Proveedor'
+        elif _col_match(c, 'Nom.Prov', 'Nom Prov', 'Nombre Proveedor'):
+            keep[c] = 'Nombre Proveedor'
+        elif _col_match(c, '/GpC', 'GpC', 'Grupo Compras'):
+            keep[c] = 'Grupo Compras'
+
+    if 'Material' not in keep.values() or 'Ref Proveedor' not in keep.values():
+        return pd.DataFrame()
+
+    cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras')]
+    df2 = df2[cols_needed].rename(columns=keep).fillna("").astype(str)
+    for col in ('Nombre Proveedor', 'Grupo Compras'):
+        if col not in df2.columns:
+            df2[col] = ""
+    df2 = df2[df2['Ref Proveedor'].str.strip() != ""]
+    df2['Material'] = df2['Material'].str.strip()
+    return df2
+
+
 @st.cache_data(ttl=3600)
 def cargar_cat2(base):
-    ruta_cat2 = os.path.join(base, 'cat2.xlsx')
-    if not os.path.exists(ruta_cat2):
+    ruta_xlsx = os.path.join(base, 'cat2.xlsx')
+    ruta_parquet = os.path.join(base, 'cat2.parquet')
+    if not os.path.exists(ruta_xlsx):
         return pd.DataFrame()
     try:
-        try:
-            df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='calamine')
-        except Exception:
-            df2 = pd.read_excel(ruta_cat2, sheet_name='Sheet1', header=3, dtype=str, engine='openpyxl')
+        # Usar parquet si existe y es mas reciente que el xlsx
+        if (os.path.exists(ruta_parquet) and
+                os.path.getmtime(ruta_parquet) >= os.path.getmtime(ruta_xlsx)):
+            return pd.read_parquet(ruta_parquet)
 
-        keep = {}
-        for c in df2.columns:
-            if _col_match(c, 'Cod.M', 'Cód.M'):
-                keep[c] = 'Material'
-            elif _col_match(c, 'Ref.Prov', 'Ref Prov'):
-                keep[c] = 'Ref Proveedor'
-            elif _col_match(c, 'Nom.Prov', 'Nom Prov', 'Nombre Proveedor'):
-                keep[c] = 'Nombre Proveedor'
-            elif _col_match(c, '/GpC', 'GpC', 'Grupo Compras'):
-                keep[c] = 'Grupo Compras'
-
-        if 'Material' not in keep.values() or 'Ref Proveedor' not in keep.values():
-            return pd.DataFrame()
-
-        cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras')]
-        df2 = df2[cols_needed].rename(columns=keep).fillna("").astype(str)
-        for col in ('Nombre Proveedor', 'Grupo Compras'):
-            if col not in df2.columns:
-                df2[col] = ""
-
-        df2 = df2[df2['Ref Proveedor'].str.strip() != ""]
-        df2['Material'] = df2['Material'].str.strip()
+        df2 = _leer_cat2_xlsx(ruta_xlsx)
+        if not df2.empty:
+            df2.to_parquet(ruta_parquet, index=False)
         return df2
     except Exception:
         return pd.DataFrame()
