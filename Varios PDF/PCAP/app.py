@@ -1,136 +1,109 @@
 import streamlit as st
-from pypdf import PdfReader
-from docx import Document
 import io
-import re
+import os
+import sys
 
-st.set_page_config(page_title="Extractor PCAP", page_icon="📄", layout="centered")
+# Asegurar que pcap_processor es importable
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pcap_processor import extract_text, analyze_pcap, create_word_report
 
-def text_extraction(pdf_file):
-    """Extrae texto de un archivo PDF en memoria."""
-    try:
-        reader = PdfReader(pdf_file)
-        text_lines = []
-        for page_num in range(len(reader.pages)):
-            page_text = reader.pages[page_num].extract_text()
-            if page_text:
-                text_lines.extend(page_text.split('\n'))
-        return text_lines
-    except Exception as e:
-        return []
+st.set_page_config(page_title="Extractor PCAP", page_icon="📄", layout="wide")
 
-def analyze_pcap_criteria_lines(lines):
-    """
-    Analiza heurísticamente el PCAP línea por línea buscando la sección de criterios.
-    Soporte bilingüe: Español (ES) y Catalán (CAT).
-    """
-    subjetivos = []
-    objetivos = []
-    
-    # Flags para detectar si estamos dentro de un bloque interesante
-    in_criteria_section = False
-    buffer = []
-    
-    keyword_criteria = ["criterios de adjudicación", "criteris d'adjudicació", "criteris d’adjudicació"]
-    keyword_subj = ["juicio de valor", "judici de valor", "subjetivo", "subjectiu", "no automátic", "no automàtic"]
-    keyword_obj = ["fórmula", "fórmules", "automático", "automàtic", "objetivo", "objectiu"]
-    
-    for i, line in enumerate(lines):
-        line_lower = line.lower().strip()
-        
-        # Detectar el inicio de la sección de criterios
-        if any(kw in line_lower for kw in keyword_criteria):
-            in_criteria_section = True
-            
-        if in_criteria_section:
-            buffer.append(line.strip())
-            
-            # Si hemos acumulado bastantes lineas, busquemos los criterios
-            if len(buffer) > 50: 
-                # Solo procesar un pequeño bloque alrededor si no encontramos un "fin" de sección claro
-                pass
-                
-        # Clasificar línea por línea si hay palabras clave
-        # Esto es más robusto cuando el texto extraído pierde formato
-        if any(kw in line_lower for kw in keyword_subj) and len(line_lower) > 20:
-            # Añadir contexto: la línea anterior y posterior
-            ctx = " ".join([l.strip() for l in lines[max(0, i-1):min(len(lines), i+2)]])
-            # Evitar duplicados
-            if ctx not in subjetivos:
-                subjetivos.append(ctx)
-
-        if any(kw in line_lower for kw in keyword_obj) and len(line_lower) > 20:
-            ctx = " ".join([l.strip() for l in lines[max(0, i-1):min(len(lines), i+2)]])
-            if ctx not in objetivos:
-                objetivos.append(ctx)
-
-    return {
-        "Subjetivos / No Automáticos (Juicios de Valor)": subjetivos[:15], 
-        "Objetivos / Automáticos (Fórmulas)": objetivos[:15]
-    }
-
-def create_word_buffer(filename, analysis_results):
-    """Genera un .docx en memoria y devuelve el buffer para descargar."""
-    doc = Document()
-    doc.add_heading(f"Análisis PCAP: {filename}", 0)
-
-    for title, criteria in analysis_results.items():
-        doc.add_heading(title, level=1)
-        if criteria:
-            for c in criteria:
-                doc.add_paragraph(c, style='List Bullet')
-        else:
-            doc.add_paragraph("No se detectaron criterios explícitos en esta categoría.")
-
-    bio = io.BytesIO()
-    doc.save(bio)
-    bio.seek(0)
-    return bio
-
-# --- INTERFAZ STREAMLIT ---
-st.title("📄 Extractor de Criterios PCAP (Word)")
 st.markdown("""
 <style>
-.stApp {
-    background-color: #f8f9fa;
-}
+    .main { background-color: #f8f9fa; }
+    h1, h2, h3 { color: #004a99; }
+    .stButton>button {
+        background-color: #004a99; color: white; font-weight: bold;
+        border: none; border-radius: 8px; height: 3em; width: 100%;
+    }
+    .stButton>button:hover { background-color: #003366; }
 </style>
 """, unsafe_allow_html=True)
 
-st.write("Sube tu Pliego (PDF) y extraeremos automáticamente los criterios de adjudicación (Soporta Castellano y Catalán).")
+st.title("📄 Extractor de Criterios PCAP")
+st.write("Sube el Pliego (PDF) y se extraerán los criterios de adjudicación de forma estructurada. Soporte bilingüe: Castellano / Català.")
 
 uploaded_file = st.file_uploader("Elige un archivo PDF", type="pdf")
 
 if uploaded_file is not None:
     filename = uploaded_file.name
-    st.info(f"Procesando: {filename}...")
-    
+    name_only = filename.replace('.pdf', '').replace('.PDF', '')
+    st.info(f"Procesando: **{filename}**")
+
     with st.spinner("Extrayendo texto y analizando criterios..."):
-        lines = text_extraction(uploaded_file)
-        
-        if not lines:
-            st.error("No se pudo extraer texto. Si es un PDF escaneado (imagen), requiere módulo OCR avanzado.")
+        text = extract_text(io.BytesIO(uploaded_file.read()))
+
+        if not text:
+            st.error("No se pudo extraer texto del PDF. Si es un PDF escaneado (imagen), requiere OCR.")
         else:
-            analysis = analyze_pcap_criteria_lines(lines)
-            
-            # Mostrar preview rápida
-            for category, items in analysis.items():
-                with st.expander(f"👁️ Vista Previa: {category}"):
-                    if items:
-                        for item in items:
-                            st.write(f"- {item}")
-                    else:
-                        st.write("No encontrados.")
-            
-            # Generar Word en memoria
-            word_buffer = create_word_buffer(filename, analysis)
-            
-            st.success("¡Informe generado con éxito!")
-            
-            # Botón de descarga
+            analysis = analyze_pcap(text)
+            subj = analysis.get('subjective')
+            obj = analysis.get('objective')
+            warnings = analysis.get('warnings', [])
+
+            # --- AVISOS ---
+            for w in warnings:
+                st.warning(f"⚠️ {w}")
+
+            # --- RESUMEN ---
+            if subj or obj:
+                st.subheader("📊 Resumen de Puntuación")
+                cols = st.columns(3)
+                with cols[0]:
+                    pts = subj.get('max_points', '—') if subj else '—'
+                    st.metric("Subjectius (Judici de Valor)", f"{pts} punts")
+                with cols[1]:
+                    pts = obj.get('max_points', '—') if obj else '—'
+                    st.metric("Objectius (Automàtics)", f"{pts} punts")
+                with cols[2]:
+                    total = (subj.get('max_points', 0) or 0) + (obj.get('max_points', 0) or 0)
+                    st.metric("TOTAL", f"{total} punts")
+
+            st.divider()
+
+            # --- SUBJECTIUS ---
+            if subj and subj.get('lots'):
+                st.subheader("1. Criteris Subjectius — Judici de Valor")
+                for lot in subj['lots']:
+                    with st.expander(f"📦 {lot['id']} ({lot['description']})", expanded=True):
+                        if lot['criteria']:
+                            for c in lot['criteria']:
+                                pts = f"**{c['max_points']} punts**" if c['max_points'] else ""
+                                st.markdown(f"**{c['letter']}) {c['name']}** — {pts}")
+                                if c['ranges']:
+                                    for rng in c['ranges']:
+                                        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;• **{rng['level']}:** {rng['detail']}")
+                                st.markdown("---")
+                        else:
+                            st.write("No s'han detectat criteris detallats.")
+
+            # --- OBJECTIUS ---
+            if obj and obj.get('criteria'):
+                st.subheader("2. Criteris Objectius — Automàtics")
+                for c in obj['criteria']:
+                    pts = f"**{c['max_points']} punts**" if c['max_points'] else ""
+                    with st.expander(f"📐 {c['letter']}) {c['name']} — {pts}", expanded=True):
+                        if c.get('tiers'):
+                            for tier in c['tiers']:
+                                st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;• {tier}")
+                        else:
+                            st.write(c.get('body', ''))
+
+            st.divider()
+
+            # --- GENERAR WORD ---
+            word_buffer = create_word_report(name_only, analysis)
+            st.success("Informe Word generado correctamente.")
             st.download_button(
-                label="📥 Descargar Informe en Word (.docx)",
+                label="📥 Descargar Informe Word (.docx)",
                 data=word_buffer,
-                file_name=f"{filename.replace('.pdf', '')}_Criterios.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                file_name=f"{name_only}_Criterios.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary"
             )
+else:
+    st.warning("⚠️ Sube un archivo PDF para comenzar.")
+
+st.markdown("---")
+st.caption("© 2026 Hospital Clínic Barcelona - Gestión de Compras Hospitalarias")
