@@ -286,7 +286,7 @@ with col_search:
     st.write("")
     busqueda_raw = st.text_input(
         "Buscador",
-        placeholder="\U0001f50d Busca varias palabras: aguja 21g subcutanea (sin acentos vale)",
+        placeholder="\U0001f50d Buscar material por número de material o descriptivo",
         label_visibility="collapsed",
     )
 
