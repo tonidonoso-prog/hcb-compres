@@ -153,9 +153,11 @@ def cargar_datos():
         return pd.DataFrame()
     try:
         try:
-            df = pd.read_excel(ruta_excel, sheet_name='CAT1', header=0, dtype=str, engine='calamine')
+            df = pd.read_excel(ruta_excel, sheet_name='CAT1', header=0, dtype=str,
+                               usecols=[0, 1, 2, 3, 4, 5], engine='calamine')
         except Exception:
-            df = pd.read_excel(ruta_excel, sheet_name='CAT1', header=0, dtype=str, engine='openpyxl')
+            df = pd.read_excel(ruta_excel, sheet_name='CAT1', header=0, dtype=str,
+                               usecols=[0, 1, 2, 3, 4, 5], engine='openpyxl')
 
         cols = df.columns
         mapa = {}
