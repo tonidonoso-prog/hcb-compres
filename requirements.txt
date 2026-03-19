@@ -9,3 +9,4 @@ altair>=5.0.0
 Pillow
 pypdf>=5.3.1
 python-docx>=1.1.2
+deep-translator>=1.11.4

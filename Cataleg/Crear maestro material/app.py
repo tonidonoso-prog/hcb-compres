@@ -4,6 +4,7 @@ import pypdf
 import re
 import io
 import os
+from deep_translator import GoogleTranslator
 
 st.set_page_config(page_title="Crear Maestro Material", layout="wide")
 
@@ -40,36 +41,56 @@ def extraer_referencia(texto: str) -> str:
     for pat in REF_PATTERNS:
         m = re.search(pat, texto, re.IGNORECASE)
         if m:
-            val = m.group(1).strip().split()[0]  # primera palabra del match
+            val = m.group(1).strip().split()[0]
             if len(val) >= 3:
                 return val
     return ""
 
 def extraer_descripcion_corta(texto: str) -> str:
-    """Coge la primera línea significativa (entre 8 y 80 chars) como candidata."""
     for line in texto.splitlines():
         line = _limpiar_linea(line)
         if 8 <= len(line) <= 80 and not re.match(r'^[\d\W]+$', line):
             return line[:40].upper()
     return ""
 
-def extraer_descripcion_larga(texto: str) -> str:
-    """Devuelve los primeros ~800 caracteres de texto limpio."""
+def extraer_bloque_principal(texto: str) -> str:
+    """Devuelve los primeros ~1500 chars de texto limpio para traducir."""
     lines = [_limpiar_linea(l) for l in texto.splitlines() if len(_limpiar_linea(l)) > 5]
     bloque = " ".join(lines)
-    return bloque[:800].strip()
+    return bloque[:1500].strip()
 
 
+# ---------------------------------------------------------------------------
+# TRADUCCIÓN
+# ---------------------------------------------------------------------------
+def traducir(texto: str, destino: str) -> str:
+    if not texto.strip():
+        return ""
+    try:
+        # Google Translate limita a ~5000 chars; ya trabajamos con ≤1500
+        return GoogleTranslator(source="auto", target=destino).translate(texto)
+    except Exception:
+        return texto  # Si falla, devuelve el original sin romper el flujo
+
+
+# ---------------------------------------------------------------------------
+# PROCESADO COMPLETO DE UN PDF
+# ---------------------------------------------------------------------------
 def procesar_pdf(pdf_bytes: bytes, filename: str) -> dict:
     texto = extraer_texto(pdf_bytes)
     ref = extraer_referencia(texto)
-    desc_corta = extraer_descripcion_corta(texto)
-    desc_larga = extraer_descripcion_larga(texto)
+    desc_corta_raw = extraer_descripcion_corta(texto)
+    bloque = extraer_bloque_principal(texto)
+
+    desc_larga_es = traducir(bloque, "es")
+    desc_larga_ca = traducir(bloque, "ca")
+    desc_corta = traducir(desc_corta_raw, "es")[:40].upper() if desc_corta_raw else ""
+
     return {
         "Archivo": filename,
         "Descripción corta material": desc_corta,
-        "Descripción larga material": desc_larga,
-        "Descripció llarga material català": "",
+        "Descripción larga material": desc_larga_es,
+        "Descripció llarga material català": desc_larga_ca,
         "referència": ref,
         "_texto": texto,
     }
@@ -108,7 +129,7 @@ with col_logo:
         st.image(logo_path, width=150)
 with col_title:
     st.markdown("## Crear Maestro Material")
-    st.caption("Sube fichas técnicas en PDF. Se extraen los campos automáticamente — edita lo que necesites y descarga el Excel.")
+    st.caption("Sube fichas técnicas en PDF. Se extraen y traducen los campos automáticamente — edita lo que necesites y descarga el Excel.")
 
 st.markdown("---")
 
@@ -127,22 +148,27 @@ if not archivos:
     st.stop()
 
 # ---------------------------------------------------------------------------
-# PROCESAR (cachear por nombre+tamaño para no reprocesar en cada rerun)
+# PROCESAR (solo pendientes, con spinner por PDF)
 # ---------------------------------------------------------------------------
 KEY = "maestro_resultados"
 if KEY not in st.session_state:
     st.session_state[KEY] = {}
 
 nombres_subidos = {f.name for f in archivos}
-# Eliminar los que ya no están
 for r in list(st.session_state[KEY].keys()):
     if r not in nombres_subidos:
         del st.session_state[KEY][r]
 
 pendientes = [f for f in archivos if f.name not in st.session_state[KEY]]
-for archivo in pendientes:
-    resultado = procesar_pdf(archivo.read(), archivo.name)
-    st.session_state[KEY][archivo.name] = resultado
+
+if pendientes:
+    progress = st.progress(0, text="Procesando y traduciendo...")
+    for i, archivo in enumerate(pendientes):
+        progress.progress(i / len(pendientes), text=f"Procesando: {archivo.name}")
+        resultado = procesar_pdf(archivo.read(), archivo.name)
+        st.session_state[KEY][archivo.name] = resultado
+    progress.progress(1.0, text="Listo")
+    progress.empty()
 
 resultados = list(st.session_state[KEY].values())
 
@@ -152,8 +178,8 @@ resultados = list(st.session_state[KEY].values())
 df_res = pd.DataFrame(resultados)
 df_edit = df_res[["Archivo"] + COLS_EXPORT].copy()
 
-st.markdown(f"### {len(df_edit)} material(es)  —  edita los campos y descarga el Excel")
-st.caption("La descripción corta se ha rellenado con la primera línea del PDF. Revisa y ajusta.")
+st.markdown(f"### {len(df_edit)} material(es) — edita los campos y descarga el Excel")
+st.caption("Descripciones traducidas automáticamente al castellano y catalán. Revisa y ajusta si es necesario.")
 
 df_editado = st.data_editor(
     df_edit,
@@ -164,7 +190,7 @@ df_editado = st.data_editor(
     column_config={
         "Archivo": st.column_config.TextColumn("Archivo", width="medium"),
         "Descripción corta material": st.column_config.TextColumn(
-            "Desc. corta (máx 40)", max_chars=40, width="medium"
+            "Desc. corta ES (máx 40)", max_chars=40, width="medium"
         ),
         "Descripción larga material": st.column_config.TextColumn(
             "Desc. larga ES", width="large"
@@ -185,16 +211,17 @@ st.download_button(
 )
 
 # ---------------------------------------------------------------------------
-# TEXTO EXTRAÍDO (para que el usuario pueda copiar)
+# TEXTO EXTRAÍDO (para consulta)
 # ---------------------------------------------------------------------------
 st.markdown("---")
 st.markdown("#### Texto extraído de cada PDF")
-st.caption("Úsalo para copiar datos que la extracción automática no haya captado correctamente.")
+st.caption("Consulta el texto original para completar campos que la extracción automática no haya capturado.")
 
 for r in resultados:
     with st.expander(r["Archivo"]):
         texto = r.get("_texto", "")
         if texto:
-            st.text_area("", value=texto, height=300, key=f"txt_{r['Archivo']}", label_visibility="collapsed")
+            st.text_area("", value=texto, height=300,
+                         key=f"txt_{r['Archivo']}", label_visibility="collapsed")
         else:
             st.warning("No se pudo extraer texto de este PDF (puede ser una imagen escaneada).")
