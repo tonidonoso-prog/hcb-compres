@@ -197,7 +197,7 @@ def generate_am(input_bytes, logo_path='logo.png', lang='es'):
         except: pass
 
     ws.row_dimensions[1].height = 85
-    apply_style(ws, "C1:H1", t['title'], font=Font(bold=True, size=14), fill=fill_blau, border=border)
+    apply_style(ws, "C1:H1", t['title'], font=Font(bold=True, size=14))
 
     apply_style(ws, "A2:H2", t['instr'], font=Font(italic=True, size=10), fill=fill_groc_inst, border=border)
     ws.row_dimensions[2].height = 40
@@ -404,7 +404,7 @@ def generate_oe(input_bytes, logo_path='logo.png', lang='es'):
         except: pass
 
     ws.row_dimensions[1].height = 85
-    apply_style(ws, "C1:O1", t['title'], font=Font(bold=True, size=14), fill=fill_blau, border=border)
+    apply_style(ws, "C1:O1", t['title'], font=Font(bold=True, size=14))
 
     apply_style(ws, "A2:O2", t['instr'], font=Font(italic=True, size=10), fill=fill_taronja, border=border)
     ws.row_dimensions[2].height = 40
