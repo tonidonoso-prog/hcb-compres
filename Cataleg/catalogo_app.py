@@ -211,15 +211,25 @@ def _cargar_cat2_completo(base):
 def cargar_datos():
     base = os.path.dirname(os.path.abspath(__file__))
     ruta_excel = os.path.join(base, 'cat1.xlsx')
+    ruta_parquet = os.path.join(base, 'cat1.parquet')
     if not os.path.exists(ruta_excel):
         return pd.DataFrame()
     try:
-        try:
-            df = pd.read_excel(ruta_excel, sheet_name='CAT1', header=0, dtype=str,
-                               usecols=[0, 1, 2, 3, 4, 5], engine='calamine')
-        except Exception:
-            df = pd.read_excel(ruta_excel, sheet_name='CAT1', header=0, dtype=str,
-                               usecols=[0, 1, 2, 3, 4, 5], engine='openpyxl')
+        # Parquet cache: ~20x más rápido que leer el xlsx
+        if (os.path.exists(ruta_parquet) and
+                os.path.getmtime(ruta_parquet) >= os.path.getmtime(ruta_excel)):
+            df = pd.read_parquet(ruta_parquet)
+        else:
+            try:
+                df = pd.read_excel(ruta_excel, sheet_name='CAT1', header=0, dtype=str,
+                                   usecols=[0, 1, 2, 3, 4, 5], engine='calamine')
+            except Exception:
+                df = pd.read_excel(ruta_excel, sheet_name='CAT1', header=0, dtype=str,
+                                   usecols=[0, 1, 2, 3, 4, 5], engine='openpyxl')
+            try:
+                df.to_parquet(ruta_parquet, index=False)
+            except Exception:
+                pass
 
         cols = df.columns
         mapa = {}

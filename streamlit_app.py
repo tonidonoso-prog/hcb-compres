@@ -76,7 +76,7 @@ def main():
     ]
 
     if "nav_tool" not in st.session_state:
-        st.session_state["nav_tool"] = TOOLS[0][1]
+        st.session_state["nav_tool"] = TOOLS[1][1]  # "Buscar por Ref. Proveedor"
 
     cols = st.columns(len(TOOLS))
     for col, (icon, label, _, _f) in zip(cols, TOOLS):
