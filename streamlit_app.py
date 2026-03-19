@@ -25,8 +25,8 @@ header {visibility: hidden;}
 }
 [data-testid="stSidebar"] {display: none;}
 
-/* Nav buttons */
-div[data-testid="stHorizontalBlock"] button[kind="secondary"].nav-btn {
+/* Nav buttons — todos */
+div[data-testid="stHorizontalBlock"] button {
     border-radius: 12px !important;
     padding: 0.75rem 1rem !important;
     font-size: 0.95rem !important;
@@ -34,6 +34,16 @@ div[data-testid="stHorizontalBlock"] button[kind="secondary"].nav-btn {
     white-space: normal !important;
     height: auto !important;
     min-height: 70px !important;
+}
+/* Nav button activo → azul */
+div[data-testid="stHorizontalBlock"] button[kind="primary"] {
+    background-color: #004a99 !important;
+    border-color: #004a99 !important;
+    color: white !important;
+}
+div[data-testid="stHorizontalBlock"] button[kind="primary"]:hover {
+    background-color: #003880 !important;
+    border-color: #003880 !important;
 }
 </style>
 """, unsafe_allow_html=True)
