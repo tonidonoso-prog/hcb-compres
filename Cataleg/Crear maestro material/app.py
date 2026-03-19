@@ -87,14 +87,28 @@ def asignar_jerarquia(desc_corta: str, desc_larga: str, jerarquias: list[dict]) 
 # ---------------------------------------------------------------------------
 # EXTRACCIÓN DE TEXTO DEL PDF
 # ---------------------------------------------------------------------------
+def _clean_text(text: str) -> str:
+    """Corrige artefactos de codificación comunes en PDFs en castellano/catalán."""
+    replacements = [
+        ('dÆ', "d'"), ('DÆ', "D'"), ('lÆ', "l'"), ('LÆ', "L'"),
+        ('nÆ', "n'"), ('sÆ', "s'"), ('NÆ', "N'"), ('SÆ', "S'"),
+        ('n║', 'nº'), ('‗', 'ò'), ('Ú', 'é'), ('Ë', 'Ó'), ('¾', 'ó'),
+        ('Þ', 'é'), ('Ý', 'í'), ('þ', 'ç'), ('¬', 'à'),
+    ]
+    for old, new in replacements:
+        text = text.replace(old, new)
+    return re.sub(r'[ \t]+', ' ', text)
+
+
 def extraer_texto(pdf_bytes: bytes) -> str:
     try:
         reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-        return "\n\n".join(
-            p.extract_text().strip()
-            for p in reader.pages
-            if p.extract_text() and p.extract_text().strip()
-        )
+        pages = []
+        for p in reader.pages:
+            t = p.extract_text()
+            if t and t.strip():
+                pages.append(t.strip())
+        return _clean_text("\n\n".join(pages))
     except Exception as e:
         return f"[Error al leer PDF: {e}]"
 
