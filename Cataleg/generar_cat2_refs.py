@@ -47,6 +47,10 @@ for c in df.columns:
         keep[c] = '/P'
     elif col_match(c, 'Prov.', 'Prov'):
         keep[c] = 'Prov.'
+    elif col_match(c, 'Resp.Cont.', 'Resp.Cont', 'Resp Cont'):
+        keep[c] = 'Resp.Cont.'
+    elif col_match(c, 'Resp.Tec.', 'Resp.Tec', 'Resp Tec'):
+        keep[c] = 'Resp.Tec.'
 
 if not keep:
     print("ERROR: No se encontraron las columnas necesarias en cat2.xlsx.")
