@@ -66,9 +66,9 @@ def _leer_cat2_xlsx(ruta_cat2):
     if 'Material' not in keep.values() or 'Ref Proveedor' not in keep.values():
         return pd.DataFrame()
 
-    cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', 'Cod Prov', 'Resp Cont', 'Resp Tec')]
+    cols_needed = [k for k, v in keep.items() if v in ('Material', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', 'Cod Prov')]
     df2 = df2[cols_needed].rename(columns=keep).fillna("").astype(str)
-    for col in ('Nombre Proveedor', 'Grupo Compras', 'Cod Prov', 'Resp Cont', 'Resp Tec'):
+    for col in ('Nombre Proveedor', 'Grupo Compras', 'Cod Prov'):
         if col not in df2.columns:
             df2[col] = ""
     df2 = df2[df2['Ref Proveedor'].str.strip() != ""]
@@ -192,7 +192,7 @@ else:
 
         df_ref['Ficha'] = df_ref.apply(_ficha_url, axis=1)
 
-        cols_show = ['Material', 'Descripcion Corta', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', 'Familia', 'Resp Cont', 'Resp Tec', 'Ficha']
+        cols_show = ['Material', 'Descripcion Corta', 'Ref Proveedor', 'Nombre Proveedor', 'Grupo Compras', 'Familia', 'Ficha']
         cols_show = [c for c in cols_show if c in df_ref.columns]
         df_show = df_ref[cols_show].drop_duplicates().copy()
         rename = {'Descripcion Corta': 'Descripcion', 'Nombre Proveedor': 'Proveedor', 'Grupo Compras': 'Grp Compras'}
