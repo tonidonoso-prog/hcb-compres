@@ -33,9 +33,24 @@ def _col_match(col_name, *targets):
 
 def _leer_cat2_xlsx(ruta_cat2):
     try:
-        df2 = pd.read_excel(ruta_cat2, header=0, dtype=str, engine='calamine')
+        df_raw = pd.read_excel(ruta_cat2, header=None, dtype=str, engine='calamine')
     except:
-        df2 = pd.read_excel(ruta_cat2, header=0, dtype=str, engine='openpyxl')
+        df_raw = pd.read_excel(ruta_cat2, header=None, dtype=str, engine='openpyxl')
+        
+    header_idx = None
+    for i in range(min(20, len(df_raw))):
+        row_vals = df_raw.iloc[i].astype(str).values
+        if any('Cód.M' in v or 'Cod.M' in v for v in row_vals):
+            header_idx = i
+            break
+            
+    if header_idx is None:
+        return pd.DataFrame()
+
+    try:
+        df2 = pd.read_excel(ruta_cat2, header=header_idx, dtype=str, engine='calamine')
+    except:
+        df2 = pd.read_excel(ruta_cat2, header=header_idx, dtype=str, engine='openpyxl')
         
     keep = {}
     for c in df2.columns:
@@ -59,7 +74,7 @@ def _leer_cat2_xlsx(ruta_cat2):
 
 def _cargar_cat2_completo(base):
     ruta_xlsx = os.path.join(base, 'cat2_refs.xlsx')
-    ruta_parquet = os.path.join(base, 'cat2_refs.parquet')
+    ruta_parquet = os.path.join(base, 'cat2_refs_catalog.parquet')
     if not os.path.exists(ruta_xlsx): return pd.DataFrame(), set()
 
     try:

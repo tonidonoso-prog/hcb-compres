@@ -25,11 +25,26 @@ def _col_match(col_name, *targets):
 
 
 def _leer_cat2_xlsx(ruta_cat2):
-    """Lee cat2_refs.xlsx, extrae columnas relevantes y devuelve DataFrame limpio."""
+    """Lee cat2_refs.xlsx, extrae columnas relevantes y devuelve DataFrame limpio, detectando cabecera dinámica."""
     try:
-        df2 = pd.read_excel(ruta_cat2, header=0, dtype=str, engine='calamine')
+        df_raw = pd.read_excel(ruta_cat2, header=None, dtype=str, engine='calamine')
     except Exception:
-        df2 = pd.read_excel(ruta_cat2, header=0, dtype=str, engine='openpyxl')
+        df_raw = pd.read_excel(ruta_cat2, header=None, dtype=str, engine='openpyxl')
+
+    header_idx = None
+    for i in range(min(20, len(df_raw))):
+        row_vals = df_raw.iloc[i].astype(str).values
+        if any('Cód.M' in v or 'Cod.M' in v for v in row_vals):
+            header_idx = i
+            break
+
+    if header_idx is None:
+        return pd.DataFrame()
+
+    try:
+        df2 = pd.read_excel(ruta_cat2, header=header_idx, dtype=str, engine='calamine')
+    except Exception:
+        df2 = pd.read_excel(ruta_cat2, header=header_idx, dtype=str, engine='openpyxl')
 
     keep = {}
     for c in df2.columns:
@@ -64,7 +79,7 @@ def _leer_cat2_xlsx(ruta_cat2):
 @st.cache_data(ttl=3600)
 def cargar_cat2(base):
     ruta_xlsx = os.path.join(base, 'cat2_refs.xlsx')
-    ruta_parquet = os.path.join(base, 'cat2_refs.parquet')
+    ruta_parquet = os.path.join(base, 'cat2_refs_search.parquet')
     if not os.path.exists(ruta_xlsx):
         return pd.DataFrame()
     try:
