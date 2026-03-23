@@ -12,30 +12,30 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Crear un usuario de sistema (no-root) con UID/GID específicos para evitar conflictos en servidores compartidos
-RUN groupadd -g 1100 streamlit && \
-    useradd -u 1100 -g 1100 -r -d /app -s /sbin/nologin streamlit
+RUN groupadd -g 1100 hcb-user && \
+    useradd -u 1100 -g 1100 -r -d /app -s /sbin/nologin hcb-user
 
 # Configuración Streamlit
-COPY --chown=streamlit:streamlit .streamlit/ ./.streamlit/
+COPY --chown=hcb-user:hcb-user .streamlit/ ./.streamlit/
 
 # App principal
-COPY --chown=streamlit:streamlit streamlit_app.py .
-COPY --chown=streamlit:streamlit logo.png .
+COPY --chown=hcb-user:hcb-user streamlit_app.py .
+COPY --chown=hcb-user:hcb-user logo.png .
 
 # Módulos
-COPY --chown=streamlit:streamlit Annexes/ ./Annexes/
-COPY --chown=streamlit:streamlit Cataleg/ ./Cataleg/
-COPY --chown=streamlit:streamlit ["Varios Excel/", "./Varios Excel/"]
-COPY --chown=streamlit:streamlit ["Varios PDF/", "./Varios PDF/"]
+COPY --chown=hcb-user:hcb-user Annexes/ ./Annexes/
+COPY --chown=hcb-user:hcb-user Cataleg/ ./Cataleg/
+COPY --chown=hcb-user:hcb-user ["Varios Excel/", "./Varios Excel/"]
+COPY --chown=hcb-user:hcb-user ["Varios PDF/", "./Varios PDF/"]
 
 # Directorio de datos persistente (copia inicial por defecto)
-COPY --chown=streamlit:streamlit data/ ./data/
+COPY --chown=hcb-user:hcb-user data/ ./data/
 
-# Asegurar permisos finales para el usuario streamlit
-RUN chown -R streamlit:streamlit /app
+# Asegurar permisos finales para el usuario hcb-user
+RUN chown -R hcb-user:hcb-user /app
 
 # Cambiar al usuario no privilegiado
-USER streamlit
+USER hcb-user
 
 EXPOSE 8080
 
