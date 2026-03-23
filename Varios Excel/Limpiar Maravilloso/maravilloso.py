@@ -27,11 +27,26 @@ def process_maravilloso(input_bytes):
         "Ins2", "CeCo3", "0,03", "Ins3", "FeCreacMat", "Texto largo de material", "GrPt"
     ]
 
-    # 1. Cargar F0 (con cabecera en la fila 7 -> header=6)
+    # 1. Detectar cabecera dinámicamente y cargar F0
     try:
-        df_f0 = pd.read_excel(io.BytesIO(input_bytes), header=6)
+        df_raw = pd.read_excel(io.BytesIO(input_bytes), header=None)
+        header_idx = None
+        for i in range(min(50, len(df_raw))):
+            row_vals = df_raw.iloc[i].astype(str).values
+            if any('Cód.M' in v for v in row_vals) or any('Descripción material' in v for v in row_vals):
+                header_idx = i
+                break
+                
+        if header_idx is None:
+            raise ValueError("No se pudo detectar la fila de cabeceras (búsqueda de 'Cód.M' o 'Descripción material' fallida).")
+            
+        df_f0 = pd.read_excel(io.BytesIO(input_bytes), header=header_idx)
     except Exception as e:
         raise ValueError(f"Error cargando Excel: {e}")
+
+    # Limpiar nombres de columnas
+    df_f0.columns = df_f0.columns.astype(str).str.strip()
+    target_cols_clean = [c.strip() for c in target_cols]
 
     # 2. Procesar las parejas de filas (Main row -> Info row shifted)
     material_rows = df_f0.iloc[::2].copy()
@@ -48,8 +63,12 @@ def process_maravilloso(input_bytes):
         material_rows['GrPt'] = info_rows['Unnamed: 22']
 
     # 3. Mapear al esquema destino
-    df_final = pd.DataFrame(columns=target_cols)
-    common_cols = [c for c in target_cols if c in material_rows.columns]
+    df_final = pd.DataFrame(columns=target_cols_clean)
+    common_cols = [c for c in target_cols_clean if c in material_rows.columns]
+    
+    if not common_cols:
+        raise ValueError("Error crítico: No se encontró coincidencia entre las columnas de SAP y el esquema previsto.")
+
     for col in common_cols:
         df_final[col] = material_rows[col]
     
