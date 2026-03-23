@@ -1,0 +1,22 @@
+.git/
+.claude/
+.vscode/
+.idea/
+__pycache__/
+venv/
+env/
+*.log
+*.tmp
+*.bak
+~$*
+null
+Dockerfile
+docker-compose.yml
+.dockerignore
+.gitignore
+
+# Datos sensibles (precios)
+Cataleg/cat2.xlsx
+
+# Secretos — nunca en imagen Docker
+.streamlit/secrets.toml
