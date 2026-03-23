@@ -2,6 +2,9 @@ import streamlit as st
 import os
 import sys
 import base64
+import time
+# Prototipo para futura integración con MSAL
+# import msal 
 
 # 1. CONFIGURACIÓN GLOBAL
 st.set_page_config(
@@ -58,6 +61,14 @@ def get_logo_b64():
 
 
 def main():
+    # --- CONTROL DE ACCESO (SAML/OAuth2) ---
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+    
+    if not st.session_state["authenticated"]:
+        show_login_page()
+        st.stop()
+
     # --- CABECERA CON LOGO ---
     logo = get_logo_b64()
     if logo:
@@ -66,15 +77,21 @@ def main():
         logo_html = '<span style="font-size:28px; margin-right:12px;">🏥</span>'
 
     st.markdown(f"""
-    <div style="display:flex; align-items:center; background-color:#004a99;
-                padding:16px 24px; border-radius:10px; margin-bottom:22px;">
-        {logo_html}
-        <div style="color:white; line-height:1.3;">
+        <div style="color:white; line-height:1.3; flex-grow: 1;">
             <div style="font-size:19px; font-weight:700;">DSG Compres</div>
             <div style="font-size:13px; opacity:0.85;">Hospital Clínic Barcelona</div>
         </div>
+        <div style="color:white; text-align:right;">
+            <div style="font-size:14px; font-weight:600;">{st.session_state.get('user_name', 'Usuario')}</div>
+            <a href="?logout=true" style="color:#ff4b4b; font-size:12px; text-decoration:none; font-weight:bold;">Cerrar Sesión</a>
+        </div>
     </div>
     """, unsafe_allow_html=True)
+
+    if st.query_params.get("logout") == "true":
+        st.session_state["authenticated"] = False
+        st.query_params.clear()
+        st.rerun()
 
     # --- NAVEGACIÓN CON BOTONES ---
     TOOLS = [
@@ -138,6 +155,38 @@ def run_app(dir_path, file_name):
     finally:
         st.set_page_config = orig_set_page_config
         os.chdir(old_cwd)
+
+
+def show_login_page():
+    """Muestra una pantalla de login atractiva (Placeholder hasta tener ClientID)."""
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.write("")
+        st.write("")
+        logo = get_logo_b64()
+        if logo:
+            st.markdown(f'<div style="text-align:center;"><img src="data:image/png;base64,{logo}" width="250"></div>', unsafe_allow_html=True)
+        
+        st.markdown("<h1 style='text-align: center; color: #004a99;'>Acceso Restringido</h1>", unsafe_allow_html=True)
+        st.info("Esta aplicación es de uso exclusivo para el personal del Hospital Clínic Barcelona.")
+        
+        with st.container(border=True):
+            st.write("### Identificación Institucional")
+            st.write("Para acceder, utiliza tu cuenta corporativa del hospital.")
+            
+            if st.button("🔐 Iniciar Sesión con cuenta Clinic (Azure AD)", type="primary", use_container_width=True):
+                # --- MOCK LOGIN (PARA PRUEBAS HASTA TENER EL TICKET) ---
+                st.session_state["authenticated"] = True
+                st.session_state["user_name"] = "Usuario Pruebas"
+                st.success("Acceso concedido (Modo Pruebas)")
+                time.sleep(1)
+                st.rerun()
+
+    st.markdown("""
+    <div style="position: fixed; bottom: 20px; width: 100%; text-align: center; color: #666; font-size: 12px;">
+        © 2026 Hospital Clínic Barcelona - Dirección de Servicios Generales
+    </div>
+    """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
