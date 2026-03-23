@@ -219,7 +219,7 @@ def construir_arbol_json(df, indice_fichas):
 
 def main():
     print("Iniciando generación de catálogo HTML...")
-    base_dir = r"C:\Users\adonoso\Hospital Clínic de Barcelona\DSG - Compres - Documents compartits\IA\HCB-COMPRES\Cataleg"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     df = cargar_datos(base_dir)
     indice_fichas = construir_indice_fichas(base_dir)
     
