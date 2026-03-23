@@ -193,7 +193,10 @@ def construir_arbol_json(df, indice_fichas):
                         "desc_larga": str(row.get('Descripcion Larga', '')).strip(),
                         "refs_pref": pares_pref,
                         "refs_otros": pares_otros,
-                        "grupo_compras": str(row.get('Grupo Compras', '')).strip()
+                        "grupo_compras": str(row.get('Grupo Compras', '')).strip(),
+                        "n3": str(n3).strip(),
+                        "n4": str(n4).strip(),
+                        "n5": str(n5).strip()
                     }
                     n5_node["children"].append(item_node)
                 if n5_node["children"]:

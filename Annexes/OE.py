@@ -7,7 +7,7 @@ from openpyxl.drawing.image import Image
 # 1. Configuración
 fitxer_origen = 'hi.xlsm'
 nom_sortida = 'ACO3_PCAP_OE.xlsx'
-password_excel = '1234'
+password_excel = 'compraspass'
 
 # --- DINAMIC COLUMN MAPPING ---
 def get_column_mapping(wb_in, annex_type):

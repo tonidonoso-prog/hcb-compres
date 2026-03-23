@@ -291,9 +291,9 @@ def generate_am(input_bytes, logo_path='logo.png', lang='es'):
     ws.column_dimensions['G'].width = 15
     ws.column_dimensions['H'].width = 15
     
-    ws.protection.password = '1234'
+    ws.protection.password = 'compraspass'
     ws.protection.sheet = True
-    
+
     final_output = io.BytesIO()
     wb_out.save(final_output)
     return final_output.getvalue()
@@ -503,7 +503,7 @@ def generate_oe(input_bytes, logo_path='logo.png', lang='es'):
         for row in ws[start:end]:
             for cell in row: cell.protection = Protection(locked=False)
 
-    ws.protection.password = '1234'; ws.protection.sheet = True
+    ws.protection.password = 'compraspass'; ws.protection.sheet = True
     final_output = io.BytesIO(); wb_out.save(final_output)
     return final_output.getvalue()
 
@@ -710,9 +710,9 @@ def generate_ot(input_bytes, logo_path='logo.png', lang='cat'):
             for cell in row: cell.protection = Protection(locked=False)
 
     ws.column_dimensions['D'].width = 55
-    ws.protection.password = '1234'
+    ws.protection.password = 'compraspass'
     ws.protection.sheet = True
-    
+
     final_output = io.BytesIO()
     wb_out.save(final_output)
     return final_output.getvalue()

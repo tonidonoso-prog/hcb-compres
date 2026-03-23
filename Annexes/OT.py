@@ -5,7 +5,7 @@ from openpyxl.styles import Alignment, PatternFill, Font, Protection, Border, Si
 # 1. Configuración
 fitxer_origen = 'hi.xlsm'
 nom_sortida = 'ACO1_PPT_OT.xlsx'
-password_excel = '1234'
+password_excel = 'compraspass'
 
 # --- DINAMIC COLUMN MAPPING ---
 def get_column_mapping(wb_in, annex_type):

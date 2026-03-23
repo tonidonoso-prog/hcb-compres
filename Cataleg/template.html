@@ -84,12 +84,15 @@
       letter-spacing: 0.05em;
     }
 
-    .search-box {
+    .search-container {
       padding: 16px 24px;
       border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
     }
 
-    .search-box input {
+    .search-container input {
+      flex: 1;
       width: 100%;
       background: rgba(0,0,0,0.2);
       border: 1px solid var(--border);
@@ -102,10 +105,29 @@
       transition: all 0.2s ease;
     }
 
-    .search-box input:focus {
+    .search-container input:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-glow);
       background: rgba(0,0,0,0.4);
+    }
+
+    .btn-export {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--success);
+      border-radius: 12px;
+      padding: 0 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      outline: none;
+    }
+
+    .btn-export:hover {
+      background: var(--success);
+      color: #fff;
     }
 
     .tree-container {
@@ -297,6 +319,16 @@
       font-size: 16px;
       color: var(--accent);
       letter-spacing: 0.05em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    
+    .code-pill:hover {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: var(--accent);
     }
 
     .divider {
@@ -448,8 +480,11 @@
       <span class="badge">PRO</span>
     </div>
     
-    <div class="search-box">
+    <div class="search-container">
       <input type="text" id="searchInput" placeholder="Buscar material o referencia..." autocomplete="off"/>
+      <button class="btn-export" onclick="exportData()" title="Exportar resultados a CSV">
+         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      </button>
     </div>
 
     <div class="tree-container" id="treeContainer">
@@ -488,6 +523,63 @@
     function removeSpacesAndDashes(str) {
         if(!str) return "";
         return str.replace(/[\s-]/g, "");
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('copyCodeBtn');
+            if(btn) {
+                btn.style.color = 'var(--success)';
+                btn.innerHTML = text + ' <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                setTimeout(() => {
+                    if(state.selectedItem && state.selectedItem.material === text) {
+                        renderDetail();
+                    }
+                }, 1500);
+            }
+        });
+    }
+
+    function getFilteredLeaves(node, results = []) {
+        if(!node) return results;
+        if(node.material) {
+            results.push(node);
+        }
+        if(node.children) {
+            node.children.forEach(c => getFilteredLeaves(c, results));
+        }
+        return results;
+    }
+
+    function exportData() {
+        const filteredTree = filterNode(DATA, state.query);
+        const leaves = getFilteredLeaves(filteredTree);
+        if(leaves.length === 0) {
+            alert("No hay resultados de búsqueda para exportar.");
+            return;
+        }
+        
+        let csvContent = "Familia;Subfamilia;Grupo;Material;Descripcion;Grupo Compras\n";
+        
+        leaves.forEach(l => {
+            let mat = l.material || "";
+            let desc = (l.desc_corta || "").replace(/;/g, ",");
+            let n3 = (l.n3 || "").replace(/;/g, ",");
+            let n4 = (l.n4 || "").replace(/;/g, ",");
+            let n5 = (l.n5 || "").replace(/;/g, ",");
+            let grp = (l.grupo_compras || "").replace(/;/g, ",");
+            
+            csvContent += `${n3};${n4};${n5};${mat};${desc};${grp}\n`;
+        });
+        
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = state.query ? "catalogo_filtrado.csv" : "catalogo.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     // Helper para buscar en el árbol
@@ -701,7 +793,10 @@
               <h2 class="detail-title">${item.desc_corta}</h2>
               <p class="detail-subtitle">Grupo de compras: ${item.grupo_compras || 'No asignado'}</p>
             </div>
-            <div class="code-pill">${item.material}</div>
+            <div class="code-pill" id="copyCodeBtn" onclick="copyToClipboard('${item.material}')" title="Copiar código al portapapeles">
+               ${item.material}
+               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </div>
           </div>
           ${descLargaHtml}
           ${refsHtml}
