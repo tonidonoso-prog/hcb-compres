@@ -106,4 +106,4 @@ else:
     st.warning("⚠️ Sube un archivo PDF para comenzar.")
 
 st.markdown("---")
-st.caption("© 2026 Hospital Clínic Barcelona - Gestión de Compras Hospitalarias")
+st.caption("© 2026 DSG Compres - Gestión de Compras")

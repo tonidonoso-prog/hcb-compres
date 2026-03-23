@@ -240,15 +240,17 @@ def main():
     with open(template_path, "r", encoding="utf-8") as f:
         html_content = f.read()
         
-    # Inyectar logo
-    logo_path = os.path.join(os.path.dirname(base_dir), "logo.png")
-    if os.path.exists(logo_path):
-        with open(logo_path, "rb") as img_f:
-            b64_logo = base64.b64encode(img_f.read()).decode()
-            logo_html = f'<img src="data:image/png;base64,{b64_logo}" style="height:40px; margin-right:8px;">'
-            html_content = html_content.replace('/*INYECTAR_LOGO_AQUI*/', logo_html)
-    else:
-        html_content = html_content.replace('/*INYECTAR_LOGO_AQUI*/', '<span style="font-size:24px; margin-right:8px;">🏥</span>')
+    # Inyectar logo (Desactivado por petición del usuario para Streamlit Cloud)
+    # logo_path = os.path.join(os.path.dirname(base_dir), "logo.png")
+    # if os.path.exists(logo_path):
+    #     with open(logo_path, "rb") as img_f:
+    #         b64_logo = base64.b64encode(img_f.read()).decode()
+    #         logo_html = f'<img src="data:image/png;base64,{b64_logo}" style="height:40px; margin-right:8px;">'
+    #         html_content = html_content.replace('/*INYECTAR_LOGO_AQUI*/', logo_html)
+    # else:
+    #     html_content = html_content.replace('/*INYECTAR_LOGO_AQUI*/', '<span style="font-size:24px; margin-right:8px;">📦</span>')
+    
+    html_content = html_content.replace('/*INYECTAR_LOGO_AQUI*/', '<span style="font-size:24px; margin-right:8px;">📦</span>')
 
     # Inyectar datos
     # Buscaremos la cadena const DATA = {}; y la reemplazaremos

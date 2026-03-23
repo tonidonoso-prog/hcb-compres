@@ -16,7 +16,7 @@ except ImportError:
 
 # 1. CONFIGURACIÓN DE PÁGINA (Sin barra lateral original)
 st.set_page_config(
-    page_title="Catalogo Hospital Clinic", 
+    page_title="Catálogo de Materiales", 
     layout="wide", 
     initial_sidebar_state="collapsed"
 )

@@ -108,8 +108,10 @@ def cargar_cat1(base):
 logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logo.png')
 col_logo, col_title = st.columns([0.12, 0.88])
 with col_logo:
-    if os.path.exists(logo_path):
-        st.image(logo_path, width=160)
+    # Ocultado temporalmente por petición del usuario
+    # if os.path.exists(logo_path):
+    #     st.image(logo_path, width=160)
+    st.write("📦") 
 with col_title:
     st.write("")
     busqueda_raw = st.text_input(

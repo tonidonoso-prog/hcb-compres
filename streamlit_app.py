@@ -8,8 +8,8 @@ import time
 
 # 1. CONFIGURACIÓN GLOBAL
 st.set_page_config(
-    page_title="H. Clinic - DSG Compres",
-    page_icon="🏥",
+    page_title="DSG - Compres",
+    page_icon="📦",
     layout="wide"
 )
 
@@ -53,10 +53,7 @@ div[data-testid="stHorizontalBlock"] button[kind="primary"]:hover {
 
 
 def get_logo_b64():
-    logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.png")
-    if os.path.exists(logo_path):
-        with open(logo_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
+    # Desactivado temporalmente por petición del usuario (Anonimización Streamlit Cloud)
     return None
 
 
@@ -79,7 +76,7 @@ def main():
     st.markdown(f"""
         <div style="color:white; line-height:1.3; flex-grow: 1;">
             <div style="font-size:19px; font-weight:700;">DSG Compres</div>
-            <div style="font-size:13px; opacity:0.85;">Hospital Clínic Barcelona</div>
+            <div style="font-size:13px; opacity:0.85;">Gestión de Compras</div>
         </div>
         <div style="color:white; text-align:right;">
             <div style="font-size:14px; font-weight:600;">{st.session_state.get('user_name', 'Usuario')}</div>
@@ -168,13 +165,13 @@ def show_login_page():
             st.markdown(f'<div style="text-align:center;"><img src="data:image/png;base64,{logo}" width="250"></div>', unsafe_allow_html=True)
         
         st.markdown("<h1 style='text-align: center; color: #004a99;'>Acceso Restringido</h1>", unsafe_allow_html=True)
-        st.info("Esta aplicación es de uso exclusivo para el personal del Hospital Clínic Barcelona.")
+        st.info("Esta aplicación es de uso exclusivo para el personal autorizado de DSG Compres.")
         
         with st.container(border=True):
             st.write("### Identificación Institucional")
             st.write("Para acceder, utiliza tu cuenta corporativa del hospital.")
             
-            if st.button("🔐 Iniciar Sesión con cuenta Clinic (Azure AD)", type="primary", use_container_width=True):
+            if st.button("🔐 Iniciar Sesión con cuenta corporativa", type="primary", use_container_width=True):
                 # --- MOCK LOGIN (PARA PRUEBAS HASTA TENER EL TICKET) ---
                 st.session_state["authenticated"] = True
                 st.session_state["user_name"] = "Usuario Pruebas"
@@ -184,7 +181,7 @@ def show_login_page():
 
     st.markdown("""
     <div style="position: fixed; bottom: 20px; width: 100%; text-align: center; color: #666; font-size: 12px;">
-        © 2026 Hospital Clínic Barcelona - Dirección de Servicios Generales
+        © 2026 DSG Compres - Dirección de Servicios Generales
     </div>
     """, unsafe_allow_html=True)
 

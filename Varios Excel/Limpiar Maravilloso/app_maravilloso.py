@@ -63,4 +63,4 @@ if uploaded_file is not None:
                 st.error(f"Error procesando el archivo: {e}")
 
 st.markdown("---")
-st.caption("Hospital Clínic Barcelona - DSG Compres | v2.0 Standalone")
+st.caption("DSG Compres | v2.0 Standalone")

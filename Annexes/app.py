@@ -6,7 +6,7 @@ from generator import generate_am, generate_oe, generate_ot
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
-    page_title="Generador de Anexos - Hospital Clínic",
+    page_title="Generador de Anexos",
     page_icon="📄",
     layout="wide"
 )
@@ -39,8 +39,10 @@ if 'outputs' not in st.session_state:
 # --- CABECERA ---
 c1, c2 = st.columns([1, 4])
 with c1:
-    if os.path.exists("logo.png"): st.image("logo.png", width=220)
-    else: st.image("https://portalprofessional.clinic.cat/sap/bc/bsp/sap/zbsppubliclgn/imgs/brand_logo.jpg", width=220)
+    # Ocultado por petición del usuario
+    # if os.path.exists("logo.png"): st.image("logo.png", width=220)
+    # else: st.image("https://portalprofessional.clinic.cat/sap/bc/bsp/sap/zbsppubliclgn/imgs/brand_logo.jpg", width=220)
+    st.write("📦")
 
 with c2:
     st.title("Generador de Anexos")
@@ -150,4 +152,4 @@ else:
     st.warning("⚠️ Por favor, sube un archivo HI.xlsm para comenzar.")
 
 st.markdown("---")
-st.caption("© 2026 Hospital Clínic Barcelona - Gestión de Compras Hospitalarias")
+st.caption("© 2026 DSG Compres - Gestión de Compras")
