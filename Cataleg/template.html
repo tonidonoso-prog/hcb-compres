@@ -8,17 +8,17 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
-      --bg: #09090b;
-      --panel: rgba(24, 24, 27, 0.7);
-      --panel-solid: #18181b;
-      --border: rgba(63, 63, 70, 0.5);
-      --text: #f4f4f5;
-      --muted: #a1a1aa;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --accent-glow: rgba(59, 130, 246, 0.2);
+      --bg: #ffffff;
+      --panel: rgba(240, 242, 246, 0.9);
+      --panel-solid: #f0f2f6;
+      --border: rgba(0, 0, 0, 0.1);
+      --text: #31333f;
+      --muted: #6b7280;
+      --accent: #004a99;
+      --accent-hover: #003880;
+      --accent-glow: rgba(0, 74, 153, 0.12);
       --success: #10b981;
-      --success-bg: rgba(16, 185, 129, 0.15);
+      --success-bg: rgba(16, 185, 129, 0.12);
       --font: 'Inter', sans-serif;
       --sidebar-w: 420px;
     }
@@ -28,9 +28,9 @@
     body {
       margin: 0;
       background: var(--bg);
-      background-image: 
-        radial-gradient(ellipse at top right, rgba(59, 130, 246, 0.12), transparent 40%),
-        radial-gradient(ellipse at bottom left, rgba(16, 185, 129, 0.08), transparent 40%);
+      background-image:
+        radial-gradient(ellipse at top right, rgba(0, 74, 153, 0.06), transparent 40%),
+        radial-gradient(ellipse at bottom left, rgba(16, 185, 129, 0.04), transparent 40%);
       color: var(--text);
       font-family: var(--font);
       display: flex;
@@ -44,8 +44,8 @@
       height: 64px;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      background: rgba(24, 24, 27, 0.8);
-      border-bottom: 1px solid var(--border);
+      background: #004a99;
+      border-bottom: 1px solid rgba(0, 56, 128, 0.4);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -70,9 +70,9 @@
     }
 
     .filters select {
-      background: rgba(0,0,0,0.3);
-      border: 1px solid var(--border);
-      color: var(--text);
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
       padding: 8px 12px;
       border-radius: 8px;
       font-family: var(--font);
@@ -108,7 +108,7 @@
       flex-direction: column;
       flex-shrink: 0;
       z-index: 10;
-      box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+      box-shadow: 4px 0 16px rgba(0,0,0,0.08);
     }
 
     .brand {
@@ -124,9 +124,7 @@
       font-size: 18px;
       font-weight: 600;
       letter-spacing: -0.02em;
-      background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: var(--text);
     }
 
     .brand .badge {
@@ -136,7 +134,7 @@
       color: var(--accent);
       padding: 4px 8px;
       border-radius: 999px;
-      border: 1px solid rgba(59, 130, 246, 0.3);
+      border: 1px solid rgba(0, 74, 153, 0.3);
       font-weight: 700;
       letter-spacing: 0.05em;
     }
@@ -151,7 +149,7 @@
     .search-container input {
       flex: 1;
       width: 100%;
-      background: rgba(0,0,0,0.2);
+      background: #fff;
       border: 1px solid var(--border);
       color: var(--text);
       padding: 12px 16px;
@@ -165,7 +163,7 @@
     .search-container input:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-glow);
-      background: rgba(0,0,0,0.4);
+      background: #fff;
     }
 
     .btn-export {
@@ -240,13 +238,13 @@
     }
 
     .node-row:hover {
-      background: rgba(255,255,255,0.04);
-      border-color: rgba(255,255,255,0.08);
+      background: rgba(0,74,153,0.06);
+      border-color: rgba(0,74,153,0.15);
     }
 
     .node-row.selected {
       background: var(--accent-glow);
-      border-color: rgba(59, 130, 246, 0.4);
+      border-color: rgba(0, 74, 153, 0.4);
     }
 
     .node-row.selected .node-text {
@@ -261,7 +259,7 @@
       align-items: center;
       justify-content: center;
       border-radius: 4px;
-      background: rgba(0,0,0,0.3);
+      background: rgba(0,0,0,0.06);
       border: 1px solid var(--border);
       color: var(--muted);
       font-size: 12px;
@@ -283,13 +281,13 @@
     }
 
     .item-code {
-      background: rgba(0,0,0,0.4);
+      background: rgba(0,74,153,0.08);
       padding: 2px 8px;
       border-radius: 999px;
       font-family: monospace;
       font-size: 11px;
       color: var(--accent);
-      border: 1px solid rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(0, 74, 153, 0.2);
     }
 
     .export-node-icon {
@@ -315,7 +313,7 @@
     .children {
       margin-left: 14px;
       padding-left: 10px;
-      border-left: 1px solid rgba(255,255,255,0.06);
+      border-left: 1px solid rgba(0,0,0,0.08);
     }
 
     /* Empty State */
@@ -342,7 +340,7 @@
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 32px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
       max-width: 900px;
       margin: 0 auto;
       animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -376,7 +374,7 @@
       font-size: 28px;
       font-weight: 600;
       margin: 0 0 8px 0;
-      color: #fff;
+      color: var(--text);
       line-height: 1.2;
     }
 
@@ -388,7 +386,7 @@
     }
 
     .code-pill {
-      background: rgba(0,0,0,0.3);
+      background: rgba(0,74,153,0.06);
       border: 1px solid var(--border);
       padding: 8px 16px;
       border-radius: 8px;
@@ -404,7 +402,7 @@
     }
     
     .code-pill:hover {
-      background: rgba(59, 130, 246, 0.15);
+      background: rgba(0, 74, 153, 0.12);
       border-color: var(--accent);
     }
 
@@ -434,12 +432,12 @@
     }
 
     .desc-larga {
-      background: rgba(0,0,0,0.2);
+      background: rgba(0,0,0,0.03);
       padding: 20px;
       border-radius: 12px;
       border: 1px solid var(--border);
       line-height: 1.6;
-      color: #d4d4d8;
+      color: var(--text);
     }
 
     /* Reference Tables */
@@ -454,15 +452,15 @@
       align-items: center;
       justify-content: space-between;
       padding: 16px 20px;
-      background: rgba(0,0,0,0.2);
+      background: #fff;
       border: 1px solid var(--border);
       border-radius: 12px;
       transition: all 0.2s;
     }
 
     .ref-card:hover {
-      background: rgba(255,255,255,0.03);
-      border-color: rgba(255,255,255,0.1);
+      background: rgba(0,74,153,0.04);
+      border-color: rgba(0,74,153,0.2);
     }
 
     .ref-card.pref {
@@ -483,7 +481,7 @@
     .ref-code {
       font-size: 16px;
       font-weight: 600;
-      color: #fff;
+      color: var(--text);
       font-family: monospace;
     }
 
@@ -517,8 +515,8 @@
       gap: 6px;
       padding: 6px 14px;
       border-radius: 8px;
-      background: rgba(59, 130, 246, 0.15);
-      border: 1px solid rgba(59, 130, 246, 0.3);
+      background: rgba(0, 74, 153, 0.1);
+      border: 1px solid rgba(0, 74, 153, 0.3);
       color: var(--accent);
       text-decoration: none;
       font-size: 12px;
@@ -543,15 +541,15 @@
       transition: all 0.2s;
     }
     .copy-icon:hover {
-      background: rgba(255,255,255,0.1);
-      color: #fff;
+      background: rgba(0,0,0,0.08);
+      color: var(--accent);
     }
 
     /* Scrollbars */
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
 
   </style>
 </head>
