@@ -292,6 +292,26 @@
       border: 1px solid rgba(59, 130, 246, 0.2);
     }
 
+    .export-node-icon {
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s;
+      opacity: 0;
+      flex-shrink: 0;
+    }
+    .node-row:hover .export-node-icon {
+      opacity: 1;
+    }
+    .export-node-icon:hover {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+    }
+
     .children {
       margin-left: 14px;
       padding-left: 10px;
@@ -803,6 +823,31 @@
         XLSX.writeFile(workbook, filename);
     }
 
+    function exportNodeData(targetNode) {
+        let leaves = [];
+        getFilteredLeaves(targetNode, leaves);
+        
+        if(leaves.length === 0) {
+            alert("No hay datos para exportar en esta carpeta.");
+            return;
+        }
+        
+        let dataToExport = [["Familia", "Subfamilia", "Grupo", "Material", "Descripcion", "Grupo Compras"]];
+        leaves.forEach(l => {
+            dataToExport.push([
+                l.n3 || "", l.n4 || "", l.n5 || "",
+                l.material || "", l.desc_corta || "", l.grupo_compras || ""
+            ]);
+        });
+        
+        const worksheet = XLSX.utils.aoa_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Catálogo");
+        
+        let filename = "catalogo_" + (targetNode.name || "export").substring(0, 15).replace(/[^a-z0-9]/gi, '_') + ".xlsx";
+        XLSX.writeFile(workbook, filename);
+    }
+
     // Helper para buscar en el árbol
     function filterNode(node, q, path = 'root') {
       if (!q) return { ...node, path };
@@ -891,12 +936,33 @@
         const nameSpan = document.createElement('span');
         nameSpan.textContent = node.desc_corta || node.name;
         textNode.appendChild(nameSpan);
+
+        row.appendChild(toggle);
+        row.appendChild(textNode);
       } else {
         textNode.textContent = node.name;
+        
+        const leftWrap = document.createElement('div');
+        leftWrap.style.display = 'flex';
+        leftWrap.style.alignItems = 'center';
+        leftWrap.style.gap = '8px';
+        leftWrap.style.overflow = 'hidden';
+        leftWrap.appendChild(toggle);
+        leftWrap.appendChild(textNode);
+        
+        const exportBtn = document.createElement('div');
+        exportBtn.className = 'export-node-icon';
+        exportBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+        exportBtn.title = `Exportar a Excel`;
+        exportBtn.onclick = (e) => {
+           e.stopPropagation();
+           exportNodeData(node);
+        };
+        
+        row.appendChild(leftWrap);
+        row.appendChild(exportBtn);
+        row.style.justifyContent = 'space-between';
       }
-
-      row.appendChild(toggle);
-      row.appendChild(textNode);
 
       row.onclick = (e) => {
         e.stopPropagation();
