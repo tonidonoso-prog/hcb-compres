@@ -11,21 +11,30 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Crear un usuario de sistema (no-root) para mayor seguridad
+RUN groupadd -r streamlit && useradd -r -g streamlit -d /app -s /sbin/nologin streamlit
+
 # Configuración Streamlit
-COPY .streamlit/ ./.streamlit/
+COPY --chown=streamlit:streamlit .streamlit/ ./.streamlit/
 
 # App principal
-COPY streamlit_app.py .
-COPY logo.png .
+COPY --chown=streamlit:streamlit streamlit_app.py .
+COPY --chown=streamlit:streamlit logo.png .
 
 # Módulos
-COPY Annexes/ ./Annexes/
-COPY Cataleg/ ./Cataleg/
-COPY ["Varios Excel/", "./Varios Excel/"]
-COPY ["Varios PDF/", "./Varios PDF/"]
+COPY --chown=streamlit:streamlit Annexes/ ./Annexes/
+COPY --chown=streamlit:streamlit Cataleg/ ./Cataleg/
+COPY --chown=streamlit:streamlit ["Varios Excel/", "./Varios Excel/"]
+COPY --chown=streamlit:streamlit ["Varios PDF/", "./Varios PDF/"]
 
 # Directorio de datos persistente (copia inicial por defecto)
-COPY data/ ./data/
+COPY --chown=streamlit:streamlit data/ ./data/
+
+# Asegurar permisos finales para el usuario streamlit
+RUN chown -R streamlit:streamlit /app
+
+# Cambiar al usuario no privilegiado
+USER streamlit
 
 EXPOSE 8080
 
