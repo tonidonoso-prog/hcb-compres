@@ -47,6 +47,9 @@ log_auditoria_compras.txt
 # Streamlit
 .streamlit/secrets.toml
 
+# Variables de entorno con credenciales (AWS, ECR)
+.env
+
 # OS
 .DS_Store
 Thumbs.db

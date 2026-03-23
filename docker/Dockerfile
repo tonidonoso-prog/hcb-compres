@@ -2,20 +2,18 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Dependencias del sistema para pdfplumber/Pillow y utilidades de administración
+# Dependencias del sistema para pdfplumber/Pillow
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ghostscript sudo && \
+    apt-get install -y --no-install-recommends ghostscript && \
     rm -rf /var/lib/apt/lists/*
 
 # Dependencias Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Crear un usuario de sistema (no-root) con UID/GID específicos y permisos de sudo
+# Crear usuario no-root con UID/GID específicos
 RUN groupadd -g 1100 hcb-user && \
-    useradd -u 1100 -g 1100 -r -d /app -s /bin/bash hcb-user && \
-    usermod -aG sudo hcb-user && \
-    echo "hcb-user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    useradd -u 1100 -g 1100 -r -d /app -s /bin/bash hcb-user
 
 # Configuración Streamlit
 COPY --chown=hcb-user:hcb-user .streamlit/ ./.streamlit/
@@ -29,9 +27,6 @@ COPY --chown=hcb-user:hcb-user Annexes/ ./Annexes/
 COPY --chown=hcb-user:hcb-user Cataleg/ ./Cataleg/
 COPY --chown=hcb-user:hcb-user ["Varios Excel/", "./Varios Excel/"]
 COPY --chown=hcb-user:hcb-user ["Varios PDF/", "./Varios PDF/"]
-
-# Directorio de datos persistente (copia inicial por defecto)
-COPY --chown=hcb-user:hcb-user data/ ./data/
 
 # Asegurar permisos finales para el usuario hcb-user
 RUN chown -R hcb-user:hcb-user /app
