@@ -3,4 +3,6 @@ services:
     image: 248189917711.dkr.ecr.eu-west-1.amazonaws.com/direccioserveisgenerals/compres/hcb-dsg:latest
     ports:
       - "8080:8080"
+    volumes:
+      - ./data:/app/data
     restart: unless-stopped

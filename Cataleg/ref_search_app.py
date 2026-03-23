@@ -123,11 +123,13 @@ with col_title:
 st.markdown("---")
 
 base = os.path.dirname(os.path.abspath(__file__))
-df_cat2 = cargar_cat2(base)
-df_cat1 = cargar_cat1(base)
+DATA_DIR = os.path.join(os.path.dirname(base), "data")
+
+df_cat2 = cargar_cat2(DATA_DIR)
+df_cat1 = cargar_cat1(DATA_DIR)
 
 # Cargar indice de fichas tecnicas
-_fichas_path = os.path.join(base, 'fichas_index.json')
+_fichas_path = os.path.join(DATA_DIR, 'fichas_index.json')
 fichas_index = {}
 if os.path.exists(_fichas_path):
     try:

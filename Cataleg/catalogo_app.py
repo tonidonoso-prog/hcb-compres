@@ -5,8 +5,14 @@ import sys
 
 # Añadir el path actual al sistema para importar el generador
 base_path = os.path.dirname(os.path.abspath(__file__))
+# Asegurar que generador está en sys.path
 if base_path not in sys.path:
     sys.path.append(base_path)
+
+# Directorio de datos (subiendo un nivel desde Cataleg y entrando en data)
+DATA_DIR = os.path.join(os.path.dirname(base_path), "data")
+# Si no existe, crear por si acaso (aunque fallará al intentar leer archivos)
+os.makedirs(DATA_DIR, exist_ok=True)
 
 try:
     import generate_html_catalog
@@ -45,13 +51,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 3. LÓGICA DE ACTUALIZACIÓN AUTOMÁTICA
-html_file = os.path.join(base_path, "catalogo_interactivo.html")
+html_file = os.path.join(DATA_DIR, "catalogo_interactivo.html")
 
 def sync_catalog():
     """Detecta cambios en los Excel y regenera el HTML si es necesario."""
     xlsx_files = [
-        os.path.join(base_path, "cat1.xlsx"), 
-        os.path.join(base_path, "cat2_refs.xlsx"),
+        os.path.join(DATA_DIR, "cat1.xlsx"), 
+        os.path.join(DATA_DIR, "cat2_refs.xlsx"),
         os.path.join(base_path, "template.html")
     ]
     
@@ -83,4 +89,5 @@ if os.path.exists(html_file):
     components.html(html_content, height=1000, scrolling=False)
 else:
     st.error("No se encontró el archivo 'catalogo_interactivo.html'.")
-    st.info("Asegúrate de que los archivos 'cat1.xlsx' y 'cat2_refs.xlsx' estén en la misma carpeta.")
+    st.info(f"Asegúrate de que los archivos 'cat1.xlsx' y 'cat2_refs.xlsx' estén en la carpeta:\n`{DATA_DIR}`")
+

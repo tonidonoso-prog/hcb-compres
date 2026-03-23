@@ -21,8 +21,11 @@ COPY logo.png .
 # Módulos
 COPY Annexes/ ./Annexes/
 COPY Cataleg/ ./Cataleg/
-COPY "Varios Excel/" "./Varios Excel/"
-COPY "Varios PDF/" "./Varios PDF/"
+COPY ["Varios Excel/", "./Varios Excel/"]
+COPY ["Varios PDF/", "./Varios PDF/"]
+
+# Directorio de datos persistente (copia inicial por defecto)
+COPY data/ ./data/
 
 EXPOSE 8080
 

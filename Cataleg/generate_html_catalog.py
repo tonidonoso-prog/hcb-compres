@@ -221,8 +221,16 @@ def construir_arbol_json(df, indice_fichas):
 def main():
     print("Iniciando generación de catálogo HTML...")
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    df = cargar_datos(base_dir)
-    indice_fichas = construir_indice_fichas(base_dir)
+    DATA_DIR = os.path.join(os.path.dirname(base_dir), "data")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    
+    file_cat1 = os.path.join(DATA_DIR, 'cat1.xlsx')
+    file_cat2 = os.path.join(DATA_DIR, 'cat2_refs.xlsx')
+    template_path = os.path.join(base_dir, 'template.html')
+    output_path = os.path.join(DATA_DIR, 'catalogo_interactivo.html')
+    
+    df = cargar_datos(DATA_DIR) # Pass DATA_DIR to cargar_datos
+    indice_fichas = construir_indice_fichas(DATA_DIR) # Pass DATA_DIR to construir_indice_fichas
     
     if df.empty:
         print("Error: No se pudieron cargar los datos.")
