@@ -11,8 +11,9 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Crear un usuario de sistema (no-root) para mayor seguridad
-RUN groupadd -r streamlit && useradd -r -g streamlit -d /app -s /sbin/nologin streamlit
+# Crear un usuario de sistema (no-root) con UID/GID específicos para evitar conflictos en servidores compartidos
+RUN groupadd -g 1100 streamlit && \
+    useradd -u 1100 -g 1100 -r -d /app -s /sbin/nologin streamlit
 
 # Configuración Streamlit
 COPY --chown=streamlit:streamlit .streamlit/ ./.streamlit/
