@@ -9,7 +9,8 @@ variables:
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
   AWS_DEFAULT_REGION: "eu-west-1"
-  ECR_REGISTRY: "248189917711.dkr.ecr.eu-west-1.amazonaws.com"
+  # ECR_REGISTRY: Se construye dinámicamente usando la variable AWS_ACCOUNT_ID que configures en GitLab
+  ECR_REGISTRY: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
   IMAGE_NAME: "direccioserveisgenerals/compres/hcb-dsg"
 
 # COMPILACIÓN: Se ejecuta en cada commit a main para verificar que el Docker funciona.
