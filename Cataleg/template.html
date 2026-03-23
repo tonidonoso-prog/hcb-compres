@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Catálogo Interactivo HCB</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --bg: #09090b;
@@ -511,6 +512,21 @@
       color: #fff;
     }
 
+    .copy-icon {
+      color: var(--muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .copy-icon:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
     /* Scrollbars */
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -599,16 +615,21 @@
         return str.replace(/[\s-]/g, "");
     }
 
-    function copyToClipboard(text) {
+    function copyToClipboard(text, btnId, isPill=false) {
         navigator.clipboard.writeText(text).then(() => {
-            const btn = document.getElementById('copyCodeBtn');
+            const btn = document.getElementById(btnId);
             if(btn) {
+                const origHtml = btn.innerHTML;
+                const origColor = btn.style.color || '';
                 btn.style.color = 'var(--success)';
-                btn.innerHTML = text + ' <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                if (isPill) {
+                    btn.innerHTML = text + ' <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                } else {
+                    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                }
                 setTimeout(() => {
-                    if(state.selectedItem && state.selectedItem.material === text) {
-                        renderDetail();
-                    }
+                    btn.style.color = origColor;
+                    btn.innerHTML = origHtml;
                 }, 1500);
             }
         });
@@ -756,28 +777,30 @@
             return;
         }
         
-        let csvContent = "Familia;Subfamilia;Grupo;Material;Descripcion;Grupo Compras\n";
+        let dataToExport = [];
+        dataToExport.push(["Familia", "Subfamilia", "Grupo", "Material", "Descripcion", "Grupo Compras"]);
+        
         leaves.forEach(l => {
-            let mat = l.material || "";
-            let desc = (l.desc_corta || "").replace(/;/g, ",");
-            let n3 = (l.n3 || "").replace(/;/g, ",");
-            let n4 = (l.n4 || "").replace(/;/g, ",");
-            let n5 = (l.n5 || "").replace(/;/g, ",");
-            let grp = (l.grupo_compras || "").replace(/;/g, ",");
-            csvContent += `${n3};${n4};${n5};${mat};${desc};${grp}\n`;
+            dataToExport.push([
+                l.n3 || "",
+                l.n4 || "",
+                l.n5 || "",
+                l.material || "",
+                l.desc_corta || "",
+                l.grupo_compras || ""
+            ]);
         });
         
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
+        const worksheet = XLSX.utils.aoa_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Catálogo");
+        
         let filename = "catalogo_niveles";
         if(currentN3) filename += "_" + currentN3.substring(0,10).replace(/[^a-z0-9]/gi, '_');
         if(currentN4) filename += "_" + currentN4.substring(0,10).replace(/[^a-z0-9]/gi, '_');
-        link.download = filename + ".csv";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        filename += ".xlsx";
+        
+        XLSX.writeFile(workbook, filename);
     }
 
     // Helper para buscar en el árbol
@@ -986,12 +1009,17 @@
 
       main.innerHTML = `
         <div class="detail-card">
-          <div class="detail-header">
-            <div>
-              <h2 class="detail-title">${item.desc_corta}</h2>
-              <p class="detail-subtitle">Grupo de compras: ${item.grupo_compras || 'No asignado'}</p>
+          <div class="detail-header" style="align-items:flex-start;">
+            <div style="flex:1;">
+               <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                 <h2 class="detail-title" style="margin:0;">${item.desc_corta}</h2>
+                 <div class="copy-icon" id="copyDescBtn" onclick="copyToClipboard('${item.desc_corta.replace(/'/g, "\\'")}', 'copyDescBtn')" title="Copiar descripción verbal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                 </div>
+               </div>
+               <p class="detail-subtitle">Grupo de compras: ${item.grupo_compras || 'No asignado'}</p>
             </div>
-            <div class="code-pill" id="copyCodeBtn" onclick="copyToClipboard('${item.material}')" title="Copiar código al portapapeles">
+            <div class="code-pill" id="copyCodeBtn" onclick="copyToClipboard('${item.material}', 'copyCodeBtn', true)" title="Copiar código al portapapeles">
                ${item.material}
                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             </div>
