@@ -34,11 +34,11 @@ ENV/
 *.xlsm
 *.parquet
 !plantillas/*.xlsx
-!Cataleg/cat1.xlsx
-!Cataleg/cat2_refs.xlsx
+!Cataleg/*.xlsx
 !Cataleg/*.parquet
 !Annexes/CABECERAS.xlsx
-Cataleg/cat2.xlsx
+!data/*.xlsx
+!data/*.parquet
 
 # Logs
 *.log
