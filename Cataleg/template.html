@@ -1070,7 +1070,12 @@
       const descLargaHtml = item.desc_larga ? `
         <div class="divider"></div>
         <div class="section-title">Descripción Técnica</div>
-        <div class="desc-larga">${item.desc_larga.replace(/\n/g, '<br/>')}</div>
+        <div class="desc-larga" style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
+           <div style="flex:1;">${item.desc_larga.replace(/\n/g, '<br/>')}</div>
+           <div class="copy-icon" id="copyDescLargaBtn" onclick="copyToClipboard(state.selectedItem.desc_larga, 'copyDescLargaBtn')" title="Copiar descripción larga al portapapeles">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+           </div>
+        </div>
       ` : '';
 
       main.innerHTML = `
@@ -1079,13 +1084,13 @@
             <div style="flex:1;">
                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
                  <h2 class="detail-title" style="margin:0;">${item.desc_corta}</h2>
-                 <div class="copy-icon" id="copyDescBtn" onclick="copyToClipboard('${item.desc_corta.replace(/'/g, "\\'")}', 'copyDescBtn')" title="Copiar descripción verbal">
+                 <div class="copy-icon" id="copyDescBtn" onclick="copyToClipboard(state.selectedItem.desc_corta, 'copyDescBtn')" title="Copiar título verbal">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                  </div>
                </div>
                <p class="detail-subtitle">Grupo de compras: ${item.grupo_compras || 'No asignado'}</p>
             </div>
-            <div class="code-pill" id="copyCodeBtn" onclick="copyToClipboard('${item.material}', 'copyCodeBtn', true)" title="Copiar código al portapapeles">
+            <div class="code-pill" id="copyCodeBtn" onclick="copyToClipboard(state.selectedItem.material, 'copyCodeBtn', true)" title="Copiar código al portapapeles">
                ${item.material}
                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             </div>
