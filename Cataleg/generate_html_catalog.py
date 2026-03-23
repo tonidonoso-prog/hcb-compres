@@ -158,11 +158,20 @@ def construir_arbol_json(df, indice_fichas):
     
     # Pre-calcular agrupaciones
     for n3, g3 in df.groupby('Nivel 3'):
-        n3_node = {"name": str(n3).strip(), "children": []}
+        n3_name = str(n3).strip()
+        if not n3_name or n3_name in ['0', 'nan', '0.0']: continue
+        
+        n3_node = {"name": n3_name, "children": []}
         for n4, g4 in g3.groupby('Nivel 4'):
-            n4_node = {"name": str(n4).strip(), "children": []}
+            n4_name = str(n4).strip()
+            if not n4_name or n4_name in ['0', 'nan', '0.0']: continue
+            
+            n4_node = {"name": n4_name, "children": []}
             for n5, g5 in g4.groupby('Nivel 5'):
-                n5_node = {"name": str(n5).strip(), "children": []}
+                n5_name = str(n5).strip()
+                if not n5_name or n5_name in ['0', 'nan', '0.0']: continue
+                
+                n5_node = {"name": n5_name, "children": []}
                 for _, row in g5.iterrows():
                     mat = str(row['Material']).strip()
                     desc = str(row['Descripcion Corta']).strip()
