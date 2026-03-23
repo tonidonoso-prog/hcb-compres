@@ -13,19 +13,24 @@ variables:
   ECR_REGISTRY: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
   IMAGE_NAME: "direccioserveisgenerals/compres/hcb-dsg"
 
-# COMPILACIÓN: Se ejecuta en cada commit a main para verificar que el Docker funciona.
-build-dev:
-  stage: build
+# COMPILACIÓN/PRE-DESPLIEGUE: Se ejecuta en la rama 'pre'.
+deploy-pre:
+  stage: deploy
   image: docker:24
   services:
     - docker:24-dind
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
   script:
-    - docker build -t $IMAGE_NAME:dev -f docker/Dockerfile .
+    - docker build -t $IMAGE_NAME:pre -f docker/Dockerfile .
+    - docker tag $IMAGE_NAME:pre $ECR_REGISTRY/$IMAGE_NAME:pre
+    - docker push $ECR_REGISTRY/$IMAGE_NAME:pre
   only:
-    - main
+    - pre
 
-# DESPLIEGUE: Solo se ejecuta cuando creas un TAG (ej: "v1.0"). Sube la imagen a AWS ECR.
-deploy-to-ecr:
+# DESPLIEGUE PRO: Solo se ejecuta cuando creas un TAG (ej: "v1.0"). Sube como versión y como 'latest'.
+deploy-pro:
   stage: deploy
   image: docker:24
   services:
