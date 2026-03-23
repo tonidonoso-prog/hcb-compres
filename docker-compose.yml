@@ -7,12 +7,7 @@ services:
       # --- Catálogo: Excel de datos, caché parquet, HTML generado, índice fichas ---
       - ./data:/app/data
 
-      # --- Módulo LEER_PDF/PCAP: PDFs entrada, Word resultados, PDFs procesados ---
-      - ./pcap/input:/app/LEER_PDF/PCAP/leer_pdf
-      - ./pcap/resultados:/app/LEER_PDF/PCAP/resultados_word
-      - ./pcap/procesados:/app/LEER_PDF/PCAP/procesados
-
-      # --- Módulo Varios PDF/PCAP: misma estructura ---
+      # --- Módulo Varios PDF/PCAP: PDFs entrada, Word resultados, PDFs procesados ---
       - "./pcap_varios/input:/app/Varios PDF/PCAP/leer_pdf"
       - "./pcap_varios/resultados:/app/Varios PDF/PCAP/resultados_word"
       - "./pcap_varios/procesados:/app/Varios PDF/PCAP/procesados"

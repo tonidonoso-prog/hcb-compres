@@ -1,3 +1,0 @@
-pypdf>=5.3.1
-python-docx>=1.1.2
-watchdog>=6.0.0
