@@ -74,8 +74,8 @@ def _cargar_cat2_completo(base):
             materiales_con_p = set(df2[df2['/P'].str.strip().str.upper() == 'X']['Material'].unique())
             df2['_pref'] = df2['/P'].str.strip().str.upper() == 'X'
         else:
-            materiales_con_p = set(df2['Material'].unique())
-            df2['_pref'] = True
+            materiales_con_p = set()
+            df2['_pref'] = False
 
         def _join(vals):
             return ' | '.join(sorted(set(v.strip() for v in vals if v.strip())))
@@ -145,8 +145,8 @@ def cargar_datos(base):
             if col not in df.columns: df[col] = ""
             df[col] = df[col].fillna("")
             
-        if materiales_con_p:
-            df = df[df['Material'].isin(materiales_con_p)]
+        # El usuario quiere ver todos los materiales, pero marcar solo los pref
+        # No filtramos por materiales_con_p
         df = df.drop_duplicates(subset='Material')
         return df
     except Exception as e:
