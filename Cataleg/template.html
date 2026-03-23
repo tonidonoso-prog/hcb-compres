@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Catálogo Interactivo HCB</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --panel: rgba(24, 24, 27, 0.7);
+      --panel-solid: #18181b;
+      --border: rgba(63, 63, 70, 0.5);
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-glow: rgba(59, 130, 246, 0.2);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.15);
+      --font: 'Inter', sans-serif;
+      --sidebar-w: 420px;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0;
+      background: var(--bg);
+      background-image: 
+        radial-gradient(ellipse at top right, rgba(59, 130, 246, 0.12), transparent 40%),
+        radial-gradient(ellipse at bottom left, rgba(16, 185, 129, 0.08), transparent 40%);
+      color: var(--text);
+      font-family: var(--font);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      font-size: 14px;
+    }
+
+    /* Glassmorphism Sidebar */
+    aside {
+      width: var(--sidebar-w);
+      min-width: 280px;
+      max-width: 50vw;
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 10;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+    }
+
+    .brand {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand .badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      background: var(--accent-glow);
+      color: var(--accent);
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .search-box {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-box input {
+      width: 100%;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-family: var(--font);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+      background: rgba(0,0,0,0.4);
+    }
+
+    .tree-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+    }
+
+    /* Resizer */
+    .resizer {
+      width: 6px;
+      background: transparent;
+      cursor: col-resize;
+      position: relative;
+      z-index: 20;
+      margin-left: -3px;
+      margin-right: -3px;
+    }
+    .resizer::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
+      transition: background 0.2s;
+    }
+    .resizer:hover::after, .resizer.dragging::after {
+      background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%);
+    }
+
+    /* Main Content */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px 60px;
+      position: relative;
+    }
+
+    /* Tree Nodes */
+    .node {
+      padding: 6px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .node-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .node-row:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.08);
+    }
+
+    .node-row.selected {
+      background: var(--accent-glow);
+      border-color: rgba(59, 130, 246, 0.4);
+    }
+
+    .node-row.selected .node-text {
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .toggle {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .node-row:hover .toggle {
+      border-color: var(--muted);
+      color: var(--text);
+    }
+
+    .node-text {
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.2s;
+    }
+
+    .item-code {
+      background: rgba(0,0,0,0.4);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--accent);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .children {
+      margin-left: 14px;
+      padding-left: 10px;
+      border-left: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* Empty State */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--muted);
+      text-align: center;
+    }
+    
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 24px;
+      opacity: 0.2;
+    }
+
+    /* Details Panel */
+    .detail-card {
+      background: var(--panel-solid);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+      max-width: 900px;
+      margin: 0 auto;
+      animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+
+    .breadcrumb {
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .breadcrumb span { color: var(--muted); }
+
+    .detail-title {
+      font-size: 28px;
+      font-weight: 600;
+      margin: 0 0 8px 0;
+      color: #fff;
+      line-height: 1.2;
+    }
+
+    .detail-subtitle {
+      font-size: 16px;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .code-pill {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 16px;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 32px 0;
+    }
+
+    .section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .desc-larga {
+      background: rgba(0,0,0,0.2);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      line-height: 1.6;
+      color: #d4d4d8;
+    }
+
+    /* Reference Tables */
+    .refs-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .ref-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.2s;
+    }
+
+    .ref-card:hover {
+      background: rgba(255,255,255,0.03);
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .ref-card.pref {
+      background: var(--success-bg);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .ref-card.pref:hover {
+      background: rgba(16, 185, 129, 0.2);
+    }
+
+    .ref-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ref-code {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      font-family: monospace;
+    }
+
+    .ref-card.pref .ref-code {
+      color: var(--success);
+    }
+
+    .ref-prov {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .badge-pref {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-ficha {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      transition: all 0.2s;
+    }
+
+    .btn-ficha:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+  </style>
+</head>
+<body>
+
+  <aside>
+    <div class="brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#blue-grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <linearGradient id="blue-grad" x1="0" y1="0" x2="24" y2="24">
+          <stop offset="0%" stop-color="#3b82f6"/>
+          <stop offset="100%" stop-color="#10b981"/>
+        </linearGradient>
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+      </svg>
+      <h1>Catálogo Compras</h1>
+      <span class="badge">PRO</span>
+    </div>
+    
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Buscar material o referencia..." autocomplete="off"/>
+    </div>
+
+    <div class="tree-container" id="treeContainer">
+      <!-- Tree goes here -->
+    </div>
+  </aside>
+
+  <div class="resizer" id="resizer"></div>
+
+  <main id="mainPanel">
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <h2>Buscador de Instrumental</h2>
+      <p>Selecciona un material del árbol o utiliza el buscador para comenzar.</p>
+    </div>
+  </main>
+
+  <script>
+    // Placeholder para los datos. En producción será reemplazado por JSON
+    /*INYECTAR_DATOS_AQUI*/
+
+    const state = {
+      query: '',
+      selectedItem: null,
+      expandedPaths: new Set(['root'])
+    };
+
+    function normalize(str) {
+      if (!str) return "";
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    }
+
+    function removeSpacesAndDashes(str) {
+        if(!str) return "";
+        return str.replace(/[\s-]/g, "");
+    }
+
+    // Helper para buscar en el árbol
+    function filterNode(node, q, path = 'root') {
+      if (!q) return { ...node, path };
+      
+      const qNorm = normalize(q);
+      const qCompact = removeSpacesAndDashes(qNorm);
+
+      let isMatch = false;
+      const nName = normalize(node.name || "");
+      const nMat = normalize(node.material || "");
+      const nDesc = normalize(node.desc_corta || "");
+      
+      if (nName.includes(qNorm) || nMat.includes(qNorm) || nDesc.includes(qNorm) ||
+          removeSpacesAndDashes(nName).includes(qCompact)) {
+          isMatch = true;
+      }
+
+      let filteredChildren = [];
+      if (node.children) {
+        for (let i = 0; i < node.children.length; i++) {
+          const ch = node.children[i];
+          const f = filterNode(ch, q, path + '-' + i);
+          if (f) filteredChildren.push(f);
+        }
+      }
+
+      if (isMatch || filteredChildren.length > 0) {
+        return { ...node, children: filteredChildren, path, isMatch };
+      }
+      return null;
+    }
+
+    function renderTree() {
+      const container = document.getElementById('treeContainer');
+      container.innerHTML = '';
+      
+      const filtered = filterNode(DATA, state.query);
+      if (!filtered) {
+        container.innerHTML = '<div style="color:var(--muted); text-align:center; margin-top:40px;">No se encontraron resultados.</div>';
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      if (filtered.children) {
+          filtered.children.forEach((child, idx) => {
+              frag.appendChild(createNodeElement(child, 'root-' + idx, 0));
+          });
+      }
+      container.appendChild(frag);
+    }
+
+    function createNodeElement(node, path, level) {
+      const isLeaf = !node.children || node.children.length === 0;
+      // Si hay busqueda, expandir todo automáticamente. Si no, mirar el state
+      const isExpanded = state.query ? true : state.expandedPaths.has(path);
+
+      const div = document.createElement('div');
+      div.className = 'node';
+
+      const row = document.createElement('div');
+      row.className = 'node-row' + (state.selectedItem && state.selectedItem.material === node.material && isLeaf ? ' selected' : '');
+      
+      const toggle = document.createElement('div');
+      toggle.className = 'toggle';
+      if (!isLeaf) {
+        toggle.innerHTML = isExpanded ? 
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>' : 
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+      } else {
+        toggle.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>';
+        toggle.style.background = 'transparent';
+        toggle.style.borderColor = 'transparent';
+        if(row.classList.contains('selected')) toggle.style.color = '#fff';
+      }
+
+      const textNode = document.createElement('div');
+      textNode.className = 'node-text';
+      
+      if (isLeaf && node.material) {
+        const codeSpan = document.createElement('span');
+        codeSpan.className = 'item-code';
+        codeSpan.textContent = node.material;
+        codeSpan.style.marginRight = '8px';
+        textNode.appendChild(codeSpan);
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = node.desc_corta || node.name;
+        textNode.appendChild(nameSpan);
+      } else {
+        textNode.textContent = node.name;
+      }
+
+      row.appendChild(toggle);
+      row.appendChild(textNode);
+
+      row.onclick = (e) => {
+        e.stopPropagation();
+        if (isLeaf) {
+          state.selectedItem = node;
+          renderDetail();
+          // Update selection styles without full re-render if possible, or just re-render tree
+          document.querySelectorAll('.node-row').forEach(el => el.classList.remove('selected'));
+          row.classList.add('selected');
+        } else {
+          if (isExpanded) state.expandedPaths.delete(path);
+          else state.expandedPaths.add(path);
+          
+          if (!state.query) {
+             renderTree(); // re-render only if no query, since query forces expand
+          } else {
+             state.query = '';
+             document.getElementById('searchInput').value = '';
+             renderTree();
+          }
+        }
+      };
+
+      div.appendChild(row);
+
+      if (!isLeaf && isExpanded) {
+        const childrenDiv = document.createElement('div');
+        childrenDiv.className = 'children';
+        node.children.forEach((child, idx) => {
+          childrenDiv.appendChild(createNodeElement(child, path + '-' + idx, level + 1));
+        });
+        div.appendChild(childrenDiv);
+      }
+
+      return div;
+    }
+
+    function renderDetail() {
+      const main = document.getElementById('mainPanel');
+      if (!state.selectedItem) {
+        main.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <h2>Buscador de Instrumental</h2>
+            <p>Selecciona un material del árbol o utiliza el buscador para comenzar.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const item = state.selectedItem;
+      const prefRefs = item.refs_pref || [];
+      const otrosRefs = item.refs_otros || [];
+
+      let refsHtml = '';
+      if (prefRefs.length > 0 || otrosRefs.length > 0) {
+        refsHtml += `
+          <div class="divider"></div>
+          <div class="section-title">Referencias de Proveedor</div>
+          <div class="refs-grid">
+        `;
+        
+        prefRefs.forEach(refArr => {
+          const urlLink = refArr[3] ? `<a href="${refArr[3]}" target="_blank" class="btn-ficha"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg> Ficha Técnica</a>` : '';
+          
+          refsHtml += `
+            <div class="ref-card pref">
+              <div class="ref-info">
+                <span class="ref-code">${refArr[0]}</span>
+                <span class="ref-prov">${refArr[1]}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                ${urlLink}
+                <div class="badge-pref">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  Preferente
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        otrosRefs.forEach(refArr => {
+          const urlLink = refArr[3] ? `<a href="${refArr[3]}" target="_blank" class="btn-ficha"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg> Ficha Técnica</a>` : '';
+          
+          refsHtml += `
+            <div class="ref-card">
+              <div class="ref-info">
+                <span class="ref-code">${refArr[0]}</span>
+                <span class="ref-prov">${refArr[1]}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                ${urlLink}
+              </div>
+            </div>
+          `;
+        });
+
+        refsHtml += `</div>`;
+      }
+
+      const descLargaHtml = item.desc_larga ? `
+        <div class="divider"></div>
+        <div class="section-title">Descripción Técnica</div>
+        <div class="desc-larga">${item.desc_larga.replace(/\n/g, '<br/>')}</div>
+      ` : '';
+
+      main.innerHTML = `
+        <div class="detail-card">
+          <div class="detail-header">
+            <div>
+              <h2 class="detail-title">${item.desc_corta}</h2>
+              <p class="detail-subtitle">Grupo de compras: ${item.grupo_compras || 'No asignado'}</p>
+            </div>
+            <div class="code-pill">${item.material}</div>
+          </div>
+          ${descLargaHtml}
+          ${refsHtml}
+        </div>
+      `;
+    }
+
+    // Handlers
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      state.query = e.target.value;
+      renderTree();
+    });
+
+    // Resizer Logic
+    const resizer = document.getElementById('resizer');
+    const rootEl = document.documentElement;
+    let isDragging = false;
+    let startX, startW;
+
+    resizer.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startW = parseInt(window.getComputedStyle(rootEl).getPropertyValue('--sidebar-w'));
+      resizer.classList.add('dragging');
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      let newW = Math.max(280, Math.min(window.innerWidth / 2, startW + dx));
+      rootEl.style.setProperty('--sidebar-w', newW + 'px');
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        resizer.classList.remove('dragging');
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
+    });
+
+    resizer.addEventListener('dblclick', () => {
+      rootEl.style.setProperty('--sidebar-w', '420px');
+    });
+
+    // Init
+    renderTree();
+  </script>
+</body>
+</html>
