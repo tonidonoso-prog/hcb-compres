@@ -2,18 +2,20 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Dependencias del sistema para pdfplumber/Pillow
+# Dependencias del sistema para pdfplumber/Pillow y utilidades de administración
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ghostscript && \
+    apt-get install -y --no-install-recommends ghostscript sudo && \
     rm -rf /var/lib/apt/lists/*
 
 # Dependencias Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Crear un usuario de sistema (no-root) con UID/GID específicos para evitar conflictos en servidores compartidos
+# Crear un usuario de sistema (no-root) con UID/GID específicos y permisos de sudo
 RUN groupadd -g 1100 hcb-user && \
-    useradd -u 1100 -g 1100 -r -d /app -s /sbin/nologin hcb-user
+    useradd -u 1100 -g 1100 -r -d /app -s /bin/bash hcb-user && \
+    usermod -aG sudo hcb-user && \
+    echo "hcb-user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Configuración Streamlit
 COPY --chown=hcb-user:hcb-user .streamlit/ ./.streamlit/
