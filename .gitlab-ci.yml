@@ -2,7 +2,8 @@
 # Este archivo automatiza la construcción y subida de la imagen Docker a AWS ECR.
 
 stages:
-  - build-and-push
+  - build
+  - deploy
 
 variables:
   DOCKER_DRIVER: overlay2
@@ -11,8 +12,20 @@ variables:
   ECR_REGISTRY: "248189917711.dkr.ecr.eu-west-1.amazonaws.com"
   IMAGE_NAME: "direccioserveisgenerals/compres/hcb-dsg"
 
-build-image:
-  stage: build-and-push
+# COMPILACIÓN: Se ejecuta en cada commit a main para verificar que el Docker funciona.
+build-dev:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker build -t $IMAGE_NAME:dev -f docker/Dockerfile .
+  only:
+    - main
+
+# DESPLIEGUE: Solo se ejecuta cuando creas un TAG (ej: "v1.0"). Sube la imagen a AWS ECR.
+deploy-to-ecr:
+  stage: deploy
   image: docker:24
   services:
     - docker:24-dind
@@ -20,10 +33,10 @@ build-image:
     - apk add --no-cache aws-cli
     - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
   script:
-    - docker build -t $IMAGE_NAME:$CI_COMMIT_SHORT_SHA -f docker/Dockerfile .
-    - docker tag $IMAGE_NAME:$CI_COMMIT_SHORT_SHA $ECR_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
-    - docker tag $IMAGE_NAME:$CI_COMMIT_SHORT_SHA $ECR_REGISTRY/$IMAGE_NAME:latest
-    - docker push $ECR_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_TAG -f docker/Dockerfile .
+    - docker tag $IMAGE_NAME:$CI_COMMIT_TAG $ECR_REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG
+    - docker tag $IMAGE_NAME:$CI_COMMIT_TAG $ECR_REGISTRY/$IMAGE_NAME:latest
+    - docker push $ECR_REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG
     - docker push $ECR_REGISTRY/$IMAGE_NAME:latest
   only:
-    - main
+    - tags
